@@ -82,7 +82,13 @@ class UserController extends BaseController
                         static function ($query1) use ($node) {
                             if ($node->node_group != 0) {
                                 $query1->where('class', '>=', $node->node_class)
-                                    ->where('node_group', '=', $node->node_group);
+                                    ->where(function($q) use ($node) {
+                                    $q->where('node_group', '=', $node->node_group)
+                                      ->orWhere(function($q2) {
+                                          $q2->where('node_group', '=', 0)
+                                             ->where('is_multi_user', '!=', 0);
+                                      });
+                                });
                             } else {
                                 $query1->where('class', '>=', $node->node_class);
                             }
