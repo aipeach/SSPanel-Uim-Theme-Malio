@@ -70,6 +70,16 @@ $Malio_Config['phone_area_code'] = [    // 发送短信支持的手机区号
 ];
 
 
+####### 自动分组 #######
+####### 套餐分组映射规则 - 当用户购买指定套餐时自动修改用户分组ID
+$Malio_Config['enable_shop_group_mapping'] = false;     // 是否启用套餐分组映射功能
+$Malio_Config['shop_group_mapping'] = [
+    // 套餐ID => 分组ID，例如：
+    // 1 => 10,     // 购买套餐ID为1时，将用户分组改为10
+    // 2 => 11,     // 购买套餐ID为2时，将用户分组改为11
+    // 3 => 12,     // 购买套餐ID为3时，将用户分组改为12
+];
+
 ####### 订阅设置 #######
 $Malio_Config['support_sub_type'] = ['ss','ssr','v2ray'];    // 选择网站支持的代理协议，会影响复制订阅链接和一键导入按钮的显示。比如删除这个参数里的ss，则 Surge 订阅按钮不会显示再首页上，教程里也不会显示Surge教程
 $Malio_Config['quantumult_mode'] = 'single';   // quantumult 一键导入按钮的模式，可选 "single"或"all"。选择single的话只能导入一种订阅（比如只能导入SSR订阅）。选择all的话可以一次性导入全部订阅类型（SS+SSR+V2RAY），但是导入后需要用户手动更新订阅才会出现节点。

@@ -188,6 +188,15 @@ class Shop extends Model
             }
         }
 
+        // 检查是否需要自动修改用户分组
+        if (MalioConfig::get('enable_shop_group_mapping') === true) {
+            $groupMapping = MalioConfig::get('shop_group_mapping');
+            if (is_array($groupMapping) && isset($groupMapping[$this->id])) {
+                $newGroupId = $groupMapping[$this->id];
+                $user->node_group = $newGroupId;
+            }
+        }
+
         $user->save();
     }
 }
