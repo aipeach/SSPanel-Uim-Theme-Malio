@@ -21,6 +21,7 @@ use App\Models\UserSubscribeLog;
 use App\Models\DetectBanLog;
 use App\Models\TelegramTasks;
 use App\Services\Config;
+use App\Services\MalioConfig;
 use App\Services\Password;
 use App\Utils\DNSoverHTTPS;
 use App\Utils\Radius;
@@ -271,6 +272,83 @@ class Job
     public static function updatedownload()
     {
         system('cd ' . BASE_PATH . '/public/ssr-download/ && git pull https://github.com/xcxnig/ssr-download.git && git gc');
+    }
+
+    public static function SyncUserGroupByLatestShop()
+    {
+        $groupMapping = MalioConfig::get('shop_group_mapping');
+        if (!is_array($groupMapping) || count($groupMapping) === 0) {
+            echo '[' . date('Y-m-d H:i:s') . '] 未配置套餐分组映射，任务结束' . PHP_EOL;
+            return;
+        }
+
+        $normalizedMapping = [];
+        foreach ($groupMapping as $shopId => $groupId) {
+            $shopId = (int) $shopId;
+            if ($shopId <= 0 || !is_numeric($groupId)) {
+                continue;
+            }
+            $normalizedMapping[$shopId] = (int) $groupId;
+        }
+
+        if (count($normalizedMapping) === 0) {
+            echo '[' . date('Y-m-d H:i:s') . '] 套餐分组映射无有效配置，任务结束' . PHP_EOL;
+            return;
+        }
+
+        $paidUserIds = User::where('class', '>', 0)->pluck('id');
+        if ($paidUserIds->isEmpty()) {
+            echo '[' . date('Y-m-d H:i:s') . '] 未找到付费用户，任务结束' . PHP_EOL;
+            return;
+        }
+
+        $latestBoughts = Bought::whereIn('userid', $paidUserIds)
+            ->orderBy('datetime', 'desc')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->unique('userid');
+
+        if ($latestBoughts->isEmpty()) {
+            echo '[' . date('Y-m-d H:i:s') . '] 未找到购买记录，任务结束' . PHP_EOL;
+            return;
+        }
+
+        $userIdsByGroup = [];
+        foreach ($latestBoughts as $bought) {
+            $shopId = (int) $bought->shopid;
+            if (!isset($normalizedMapping[$shopId])) {
+                continue;
+            }
+            $groupId = $normalizedMapping[$shopId];
+            if (!isset($userIdsByGroup[$groupId])) {
+                $userIdsByGroup[$groupId] = [];
+            }
+            $userIdsByGroup[$groupId][] = (int) $bought->userid;
+        }
+
+        if (count($userIdsByGroup) === 0) {
+            echo '[' . date('Y-m-d H:i:s') . '] 未匹配到需要更新的用户，任务结束' . PHP_EOL;
+            return;
+        }
+
+        $matchedUsers = 0;
+        $updatedCount = 0;
+        foreach ($userIdsByGroup as $groupId => $userIds) {
+            $userIds = array_values(array_unique($userIds));
+            $matchedUsers += count($userIds);
+            foreach (array_chunk($userIds, 1000) as $chunk) {
+                $updatedCount += User::whereIn('id', $chunk)->update(['node_group' => $groupId]);
+            }
+        }
+
+        $logLine = sprintf(
+            '[%s] mapping_count=%d; match_count=%d; updated=%d',
+            date('Y-m-d H:i:s'),
+            count($normalizedMapping),
+            $matchedUsers,
+            $updatedCount
+        );
+        echo $logLine . PHP_EOL;
     }
 
 

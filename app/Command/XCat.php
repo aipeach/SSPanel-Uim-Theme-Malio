@@ -92,6 +92,8 @@ class XCat
                 return $this->initdocuments();
             case ('updatedownload'):
                 return Job::updatedownload();
+            case ('syncShopGroupMapping'):
+                return Job::SyncUserGroupByLatestShop();
             case ('cleanRelayRule'):
                 return $this->cleanRelayRule();
             case ('resetPort'):
@@ -132,6 +134,7 @@ class XCat
         echo ('  initdocuments - 下载用户使用文档至服务器' . PHP_EOL);
         echo ('  initQQWry - 下载 IP 解析库' . PHP_EOL);
         echo ('  resetTraffic - 重置所有用户流量' . PHP_EOL);
+        echo ('  syncShopGroupMapping - 按最新套餐记录同步用户分组' . PHP_EOL);
         echo ('  update - 更新并迁移配置' . PHP_EOL);
     }
 
