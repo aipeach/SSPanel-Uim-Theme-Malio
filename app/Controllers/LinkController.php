@@ -65,6 +65,11 @@ class LinkController extends BaseController
 
         $opts = $request->getQueryParams();
 
+        // 临时分组筛选
+        if (isset($opts['group'])) {
+            $Rule['temp_group'] = (int)$opts['group'];
+        }
+
         // 筛选节点部分
         $Rule['type'] = (isset($opts['type']) ? trim($opts['type']) : 'all');
         $Rule['is_mu'] = (Config::get('mergeSub') === true ? 1 : 0);

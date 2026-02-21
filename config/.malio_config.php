@@ -87,6 +87,17 @@ $Malio_Config['quantumult_sub_type'] = 'v2ray';    // quanmutult 的一键导入
 $Malio_Config['enable_copy_urls_to_clipboard'] = true;   // 设置为 true 时，首页会显示 批量复制XX链接到剪贴板 的按钮，不建议启用。
 $Malio_Config['enable_sub_extend'] = false;   //  设置为true时，订阅将包含等级过期时间和流量信息
 
+// 订阅分组映射（按用户历史用量 last_day_t）
+// last_day_t 字段含义：今天之前已使用的累计流量（单位：字节）
+// 映射规则：按 key(GB) 从小到大匹配，满足 `last_day_t < key(GB)` 则使用对应 node_group；未命中则使用 default
+// 注意：这里的 GB 按 1024^3 计算
+$Malio_Config['enable_subscribe_node_group_by_last_day_t'] = false;   // 是否启用该映射（启用后订阅将不再按用户 node_group 筛选，而是按 last_day_t 自动选择分组）
+$Malio_Config['subscribe_node_group_by_last_day_t'] = [
+    // 10  => 1,          // last_day_t < 10GB  -> node_group = 1（A 组）
+    // 100 => 2,          // last_day_t < 100GB -> node_group = 2（B 组）
+    // 'default' => 3,    // last_day_t >= 100GB -> node_group = 3（C 组）
+];
+
 
 ####### 在线客服系统 #######
 // Crisp 设置

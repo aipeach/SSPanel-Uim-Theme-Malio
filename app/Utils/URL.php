@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Node;
 use App\Models\Relay;
 use App\Services\Config;
+use App\Services\MalioConfig;
 use App\Controllers\LinkController;
 use App\Controllers\ConfController;
 
@@ -87,6 +88,64 @@ class URL
         return $return_array;
     }
 
+    /**
+     * 获取订阅可用节点分组（可按 last_day_t 自动映射）
+     *
+     * 默认逻辑：按用户自身 node_group 筛选（并放行 node_group=0 的公共节点）
+     * 映射开启后：按 last_day_t（今天之前已使用的累计流量，单位：字节）选择 node_group
+     *
+     * @param User $user
+     *
+     * @return int
+     */
+    private static function getSubscribeNodeGroup($user)
+    {
+        $userGroup = (int) $user->node_group;
+
+        $malioConfig = MalioConfig::getPublicConfig();
+        if (($malioConfig['enable_subscribe_node_group_by_last_day_t'] ?? false) !== true) {
+            return $userGroup;
+        }
+
+        $mapping = $malioConfig['subscribe_node_group_by_last_day_t'] ?? null;
+        if (!is_array($mapping) || $mapping === []) {
+            return $userGroup;
+        }
+
+        $usedBytes = (int) ($user->last_day_t ?? 0);
+        if ($usedBytes < 0) {
+            $usedBytes = 0;
+        }
+
+        $defaultGroup = isset($mapping['default']) ? (int) $mapping['default'] : null;
+
+        $thresholdMap = [];
+        foreach ($mapping as $thresholdGb => $groupId) {
+            if ($thresholdGb === 'default') {
+                continue;
+            }
+            if (is_numeric($thresholdGb)) {
+                $thresholdMap[(float) $thresholdGb] = (int) $groupId;
+            }
+        }
+
+        if ($thresholdMap === []) {
+            return $defaultGroup ?? $userGroup;
+        }
+
+        ksort($thresholdMap, SORT_NUMERIC);
+
+        $bytesPerGb = 1024 * 1024 * 1024;
+        foreach ($thresholdMap as $thresholdGb => $groupId) {
+            $limitBytes = (int) ($thresholdGb * $bytesPerGb);
+            if ($usedBytes < $limitBytes) {
+                return $groupId;
+            }
+        }
+
+        return $defaultGroup ?? $userGroup;
+    }
+
     public static function SSCanConnect($user, $mu_port = 0)
     {
         if ($mu_port != 0) {
@@ -142,6 +201,7 @@ class URL
     public static function getAllItems($user, $is_mu = 0, $is_ss = 0, $emoji = false)
     {
         $return_array = array();
+        $nodeGroup = self::getSubscribeNodeGroup($user);
         if ($user->is_admin) {
             $nodes = Node::where(
                 static function ($query) {
@@ -158,8 +218,8 @@ class URL
                 }
             )
                 ->where(
-                    static function ($query) use ($user) {
-                        $query->where('node_group', '=', $user->node_group)
+                    static function ($query) use ($nodeGroup) {
+                        $query->where('node_group', '=', $nodeGroup)
                             ->orWhere('node_group', '=', 0);
                     }
                 )
@@ -177,15 +237,15 @@ class URL
                 }
             } elseif ($is_mu != 1) {
                 $mu_nodes = Node::where('sort', 9)->where('server', '=', $is_mu)->where('node_class', '<=', $user->class)->where('type', '1')->where(
-                    static function ($query) use ($user) {
-                        $query->where('node_group', '=', $user->node_group)
+                    static function ($query) use ($nodeGroup) {
+                        $query->where('node_group', '=', $nodeGroup)
                             ->orWhere('node_group', '=', 0);
                     }
                 )->get();
             } else {
                 $mu_nodes = Node::where('sort', 9)->where('node_class', '<=', $user->class)->where('type', '1')->where(
-                    static function ($query) use ($user) {
-                        $query->where('node_group', '=', $user->node_group)
+                    static function ($query) use ($nodeGroup) {
+                        $query->where('node_group', '=', $nodeGroup)
                             ->orWhere('node_group', '=', 0);
                     }
                 )->get();
@@ -276,10 +336,11 @@ class URL
         if ($user->is_admin) {
             $nodes = Node::whereIn('sort', $sort)->where('type', '1')->orderBy('name')->get();
         } else {
+            $nodeGroup = self::getSubscribeNodeGroup($user);
             $node_query = Node::query();
             $node_query->whereIn('sort', $sort)->where('type', '1')->where(
-                static function ($query) use ($user) {
-                    $query->where('node_group', '=', $user->node_group)
+                static function ($query) use ($nodeGroup) {
+                    $query->where('node_group', '=', $nodeGroup)
                         ->orWhere('node_group', '=', 0);
                 }
             );
@@ -310,16 +371,16 @@ class URL
                 $mu_node_query->where('server', $is_mu)
                     ->where('node_class', '<=', $user->class)
                     ->where(
-                        static function ($query) use ($user) {
-                            $query->where('node_group', '=', $user->node_group)
+                        static function ($query) use ($nodeGroup) {
+                            $query->where('node_group', '=', $nodeGroup)
                                 ->orWhere('node_group', '=', 0);
                         }
                     );
             } else {
                 $mu_node_query->where('node_class', '<=', $user->class)
                     ->where(
-                        static function ($query) use ($user) {
-                            $query->where('node_group', '=', $user->node_group)
+                        static function ($query) use ($nodeGroup) {
+                            $query->where('node_group', '=', $nodeGroup)
                                 ->orWhere('node_group', '=', 0);
                         }
                     );
@@ -624,10 +685,11 @@ class URL
                 ->orderBy('name')
                 ->get();
         } else {
+            $nodeGroup = self::getSubscribeNodeGroup($user);
             $nodes = Node::where('sort', 13)
                 ->where(
-                    static function ($query) use ($user) {
-                        $query->where('node_group', '=', $user->node_group)
+                    static function ($query) use ($nodeGroup) {
+                        $query->where('node_group', '=', $nodeGroup)
                             ->orWhere('node_group', '=', 0);
                     }
                 )
@@ -722,14 +784,15 @@ class URL
                 ->orderBy('name')
                 ->get();
         } else {
+            $nodeGroup = self::getSubscribeNodeGroup($user);
             $nodes = Node::where(
                 static function ($query) {
                     $query->where('sort', 11)
                         ->orwhere('sort', 12);
                 }
             )->where(
-                static function ($query) use ($user) {
-                    $query->where('node_group', '=', $user->node_group)
+                static function ($query) use ($nodeGroup) {
+                    $query->where('node_group', '=', $nodeGroup)
                         ->orWhere('node_group', '=', 0);
                 }
             )
@@ -823,7 +886,8 @@ class URL
             )
             ->where(
                 static function ($func) use ($user) {
-                    $func->where('node_group', '=', $user->node_group)
+                    $nodeGroup = self::getSubscribeNodeGroup($user);
+                    $func->where('node_group', '=', $nodeGroup)
                         ->orwhere('node_group', '=', 0);
                 }
             )
@@ -901,7 +965,8 @@ class URL
             if (($node->mu_only == 0 || $node->mu_only == 1) && $node->sort != 13) {
                 $nodes_muport = Node::where('type', '1')->where('sort', '=', 9)
                     ->where(static function ($query) use ($user) {
-                        $query->Where('node_group', '=', $user->group)
+                        $nodeGroup = self::getSubscribeNodeGroup($user);
+                        $query->Where('node_group', '=', $nodeGroup)
                             ->orWhere('node_group', '=', 0);
                     })
                     ->where('node_class', '<=', $user->class)
