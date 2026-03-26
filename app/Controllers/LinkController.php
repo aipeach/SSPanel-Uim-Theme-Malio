@@ -140,7 +140,7 @@ class LinkController extends BaseController
                 $query_value = $opts[$key];
                 if ($query_value != '0' && $query_value != '') {
                     // 兼容代码开始
-                    if ($key == 'sub' && $query_value > 3) {
+                    if ($key == 'sub' && $query_value > 6) {
                         $query_value = 1;
                     }
                     if ($key == 'surge' && $query_value == '1') {
@@ -261,6 +261,8 @@ class LinkController extends BaseController
             case 'sub':
                 if ((int) $value == 3) {
                     $return = self::getSubscribeExtend('v2rayn');
+                } elseif ((int) $value == 6) {
+                    $return = self::getSubscribeExtend('anytls');
                 } elseif ((int) $value == 2) {
                     $return = self::getSubscribeExtend('ss');
                 } else {
@@ -310,6 +312,13 @@ class LinkController extends BaseController
             case 'v2rayn':
                 $return = [
                     'filename' => 'V2RayN',
+                    'suffix'   => 'txt',
+                    'class'    => 'Sub'
+                ];
+                break;
+            case 'anytls':
+                $return = [
+                    'filename' => 'AnyTLS',
                     'suffix'   => 'txt',
                     'class'    => 'Sub'
                 ];
@@ -517,6 +526,7 @@ class LinkController extends BaseController
             'ss'              => '?sub=2',
             'ssr'             => '?sub=1',
             'v2ray'           => '?sub=3',
+            'anytls'          => '?sub=6',
             // apps
             'ssa'             => '?list=ssa',
             'ssd'             => '?ssd=1',
@@ -573,6 +583,9 @@ class LinkController extends BaseController
                 $item['ps'] = $item['remark'];
                 $item['type'] = $item['headerType'];
                 $return = 'vmess://' . base64_encode(json_encode($item, 320));
+                break;
+            case 'anytls':
+                $return = AppURI::getAnytlsURI($item);
                 break;
             case 'kitsunebi':
                 $return = AppURI::getKitsunebiURI($item);
@@ -696,6 +709,15 @@ class LinkController extends BaseController
             'alterId'   => 0,
             'net'       => 'tcp'
         ];
+        $Extend_AnyTLS = [
+            'remark'   => '',
+            'type'     => 'anytls',
+            'address'  => $baseUrl,
+            'port'     => 443,
+            'passwd'   => $user->uuid,
+            'host'     => '',
+            'insecure' => 0,
+        ];
         if ($list == 'shadowrocket') {
             $return[] = ('STATUS=' . $unusedTraffic . '.♥.' . $expire_in . PHP_EOL . 'REMARKS=' . Config::get('appName'));
         }
@@ -703,12 +725,15 @@ class LinkController extends BaseController
             $Extend_ss['remark']    = $remark;
             $Extend_ssr['remark']   = $remark;
             $Extend_VMess['remark'] = $remark;
+            $Extend_AnyTLS['remark'] = $remark;
             if (in_array($list, ['kitsunebi', 'quantumult', 'v2rayn'])) {
                 if ($list == 'v2rayn') {
                     unset($Extend_VMess['alterId']);
                     $Extend_VMess['aid'] = 0;
                 }
                 $out = self::getListItem($Extend_VMess, $list);
+            } elseif ($list == 'anytls') {
+                $out = self::getListItem($Extend_AnyTLS, $list);
             } elseif ($list == 'ssr') {
                 $out = self::getListItem($Extend_ssr, $list);
             } else {
@@ -1487,6 +1512,10 @@ class LinkController extends BaseController
             case 3: // V2
                 $Rule['type'] = 'vmess';
                 $getListExtend = $Rule['extend'] ? self::getListExtend($user, 'v2rayn') : [];
+                break;
+            case 6: // AnyTLS
+                $Rule['type'] = 'anytls';
+                $getListExtend = $Rule['extend'] ? self::getListExtend($user, 'anytls') : [];
                 break;
             default: // SSR
                 $Rule['type'] = 'ssr';

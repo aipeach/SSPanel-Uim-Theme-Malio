@@ -64,9 +64,9 @@
   <div id="app">
     <div class="main-wrapper">
       <ul class="nav nav-tabs" id="myTab" role="tablist">
-        {if $node->sort == 14}
+        {if in_array($node->sort, [14, 16])}
         <li class="nav-item">
-          <a class="nav-link" id="trojan-tab" data-toggle="tab" href="#trojan" role="tab" aria-controls="trojan" aria-selected="true">Trojan</a>
+          <a class="nav-link" id="trojan-tab" data-toggle="tab" href="#trojan" role="tab" aria-controls="trojan" aria-selected="true">{if $node->sort == 16}AnyTLS{else}Trojan{/if}</a>
         </li>
         {elseif (in_array("ssr",$malio_config['support_sub_type']))}
         {if $node->mu_only != 1}
@@ -95,7 +95,7 @@
         {/if}
       </ul>
       <div class="tab-content" id="myTabContent">
-        {if $node->sort == 14}
+        {if in_array($node->sort, [14, 16])}
         <div class="tab-pane fade active show" id="trojan" role="tabpanel" aria-labelledby="trojan-tab">
           <div class="row mt-2">
             <div class="col-12 col-sm-3 col-md-3">
@@ -108,12 +108,19 @@
             <div class="col-12 col-sm-9 col-md-9">
               <div class="tab-content no-padding" id="myTab2Content">
                 <div class="tab-pane fade active show" id="trojan-info" role="tabpanel" aria-labelledby="trojan-info-tab">
-                  {$sort14Node = URL::getTrojanItem($user, $node, false)}
-                  <p>服务器地址：<code class="card-tag tag-blue">{$sort14Node['address']}</code></p>
-                  <p>服务器端口：<code class="card-tag tag-volcano">{$sort14Node['port']}</code></p>
-                  <p>密码：<code class="card-tag tag-geekblue">{$sort14Node['passwd']}</code></p>
-                  {if $sort14Node['host'] != $sort14Node['address']}
-                      <p>HOST&PEER：<code class="card-tag tag-green">{$sort14Node['host']}</code></p>
+                  {$sortProxyNode = ($node->sort == 16 ? URL::getAnytlsItem($user, $node, false) : URL::getTrojanItem($user, $node, false))}
+                  <p>服务器地址：<code class="card-tag tag-blue">{$sortProxyNode['address']}</code></p>
+                  <p>服务器端口：<code class="card-tag tag-volcano">{$sortProxyNode['port']}</code></p>
+                  <p>密码：<code class="card-tag tag-geekblue">{$sortProxyNode['passwd']}</code></p>
+                  {if $node->sort == 16}
+                    {if isset($sortProxyNode['host']) && $sortProxyNode['host'] != ''}
+                      <p>SNI：<code class="card-tag tag-green">{$sortProxyNode['host']}</code></p>
+                    {/if}
+                    {if isset($sortProxyNode['insecure']) && $sortProxyNode['insecure'] == 1}
+                      <p>Insecure：<code class="card-tag tag-red">1</code></p>
+                    {/if}
+                  {elseif $sortProxyNode['host'] != $sortProxyNode['address']}
+                      <p>HOST&PEER：<code class="card-tag tag-green">{$sortProxyNode['host']}</code></p>
                   {/if}
                 </div>
               </div>

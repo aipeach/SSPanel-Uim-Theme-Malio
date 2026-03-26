@@ -394,6 +394,12 @@
                           <a href="##" class="btn btn-icon icon-left btn-primary btn-v2ray copy-text btn-lg btn-round" data-clipboard-text="{$subInfo['v2ray']}{if $malio_config['enable_sub_extend'] == true}&extend=1{/if}"><i class="malio-v2rayng"></i> {$i18n->get('copy-v2ray-config-url')}</a>
                         {/if}
                         {/if}
+
+                        {if (in_array("anytls",$malio_config['support_sub_type']))}
+                        {if (!in_array("anytls",$malio_config['index_hidden_import_buttons']))}
+                          <a href="##" class="btn btn-icon icon-left btn-primary btn-v2ray copy-text btn-lg btn-round" data-clipboard-text="{$subInfo['anytls']}{if $malio_config['enable_sub_extend'] == true}&extend=1{/if}"><i class="malio-v2rayng"></i> 复制 AnyTLS 订阅链接</a>
+                        {/if}
+                        {/if}
                         
                         {if (!in_array("ssd",$malio_config['index_hidden_import_buttons']))}
                         <a href="##" class="btn btn-icon icon-left btn-primary btn-quantumult copy-text btn-lg btn-round" data-clipboard-text="{$subInfo['ssd']}"><i class="malio-ssr"></i> {$i18n->get('copy-ssd-config-url')}</a>

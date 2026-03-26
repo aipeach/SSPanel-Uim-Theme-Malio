@@ -328,9 +328,12 @@ class URL
             case 'trojan':
                 $sort = [14];
                 break;
+            case 'anytls':
+                $sort = [16];
+                break;
             default:
                 $Rule['type'] = 'all';
-                $sort = [0, 10, 11, 12, 13, 14];
+                $sort = [0, 10, 11, 12, 13, 14, 16];
                 break;
         }
         if ($user->is_admin) {
@@ -360,7 +363,7 @@ class URL
             $nodes = $node_query->orderBy('name')->get();
         }
         $return_array = array();
-        if ($is_mu != 0 && $Rule['type'] != 'vmess' && $Rule['type'] != 'trojan') {
+        if ($is_mu != 0 && $Rule['type'] != 'vmess' && $Rule['type'] != 'trojan' && $Rule['type'] != 'anytls') {
             $mu_node_query = Node::query();
             $mu_node_query->where('sort', 9)->where('type', '1');
             if ($user->is_admin) {
@@ -426,6 +429,17 @@ class URL
                 if (in_array($node->sort, [14]) && (($Rule['type'] == 'all' && $x == 0) || ($Rule['type'] == 'trojan'))) {
                     // Trojan
                     $item = self::getTrojanItem($user, $node, $emoji);
+                    if ($item != null) {
+                        $find = (isset($Rule['content']['regex']) && $Rule['content']['regex'] != '' ? ConfController::getMatchProxy($item, ['content' => ['regex' => $Rule['content']['regex']]]) : true);
+                        if ($find) {
+                            $return_array[] = $item;
+                        }
+                    }
+                    continue;
+                }
+                if (in_array($node->sort, [16]) && (($Rule['type'] == 'all' && $x == 0) || ($Rule['type'] == 'anytls'))) {
+                    // AnyTLS
+                    $item = self::getAnytlsItem($user, $node, $emoji);
                     if ($item != null) {
                         $find = (isset($Rule['content']['regex']) && $Rule['content']['regex'] != '' ? ConfController::getMatchProxy($item, ['content' => ['regex' => $Rule['content']['regex']]]) : true);
                         if ($find) {
@@ -566,6 +580,149 @@ class URL
         if (isset($opt['host'])) {
             $item['host'] = $opt['host'];
         }
+        return $item;
+    }
+
+    /**
+     * AnyTLS 节点
+     *
+     * 节点格式示例：
+     * example.com;port=443|sni=example.com|insecure=1|client_fingerprint=chrome
+     *
+     * @param User $user 用户
+     * @param Node $node
+     * @param bool $emoji
+     *
+     * @return array
+     */
+    public static function getAnytlsItem($user, $node, $emoji = false)
+    {
+        $server_raw = trim((string) $node->server);
+        $address = '';
+        $port = 443;
+        $opt = [];
+
+        if ($server_raw !== '' && stripos($server_raw, 'anytls://') === 0) {
+            $parsed = parse_url($server_raw);
+            if (is_array($parsed)) {
+                if (isset($parsed['host'])) {
+                    $address = trim((string) $parsed['host']);
+                }
+                if (isset($parsed['port']) && is_numeric($parsed['port'])) {
+                    $port = (int) $parsed['port'];
+                }
+                if (isset($parsed['query']) && trim((string) $parsed['query']) !== '') {
+                    parse_str((string) $parsed['query'], $query);
+                    if (is_array($query)) {
+                        $opt = $query;
+                    }
+                }
+            }
+        } else {
+            $server = explode(';', $server_raw, 2);
+            $address = trim((string) ($server[0] ?? ''));
+            if (isset($server[1])) {
+                $segments = explode('|', (string) $server[1]);
+                foreach ($segments as $segment) {
+                    $segment = trim($segment);
+                    if ($segment === '' || strpos($segment, '=') === false) {
+                        continue;
+                    }
+                    list($k, $v) = explode('=', $segment, 2);
+                    $k = strtolower(trim((string) $k));
+                    if ($k === '') {
+                        continue;
+                    }
+                    $opt[$k] = trim((string) $v);
+                }
+            }
+        }
+
+        $normalizedOpt = [];
+        foreach ($opt as $k => $v) {
+            $k = strtolower(trim((string) $k));
+            if ($k === '') {
+                continue;
+            }
+            if (is_array($v)) {
+                $v = reset($v);
+            }
+            $normalizedOpt[$k] = trim((string) $v);
+        }
+        $opt = $normalizedOpt;
+
+        $getOpt = static function (array $options, array $keys, $default = '') {
+            foreach ($keys as $key) {
+                if (!array_key_exists($key, $options)) {
+                    continue;
+                }
+                $value = trim((string) $options[$key]);
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+            return $default;
+        };
+
+        $portFromOpt = $getOpt($opt, ['outside_port', 'outside-port', 'port'], '');
+        if ($portFromOpt !== '' && is_numeric($portFromOpt)) {
+            $port = (int) $portFromOpt;
+        }
+        if ($port <= 0 || $port > 65535) {
+            $port = 443;
+        }
+
+        $hostRaw = trim((string) $getOpt($opt, ['sni', 'host'], ''));
+        $host = ($hostRaw !== '' && strtolower($hostRaw) !== 'none' ? $hostRaw : '');
+
+        $insecureRaw = strtolower((string) $getOpt($opt, ['insecure', 'allowinsecure', 'allow_insecure'], '0'));
+        $insecure = in_array($insecureRaw, ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
+
+        $udpRaw = strtolower((string) $getOpt($opt, ['udp'], '1'));
+        $udp = in_array($udpRaw, ['0', 'false', 'no', 'off'], true) ? 0 : 1;
+
+        $clientFingerprint = $getOpt($opt, ['client_fingerprint', 'client-fingerprint', 'fingerprint'], 'chrome');
+        if ($clientFingerprint === '') {
+            $clientFingerprint = 'chrome';
+        }
+
+        $idleCheckRaw = $getOpt($opt, ['idle_session_check_interval', 'idle-session-check-interval'], '30');
+        $idleTimeoutRaw = $getOpt($opt, ['idle_session_timeout', 'idle-session-timeout'], '30');
+        $minIdleRaw = $getOpt($opt, ['min_idle_session', 'min-idle-session'], '0');
+
+        $idleCheck = (is_numeric($idleCheckRaw) ? (int) $idleCheckRaw : 30);
+        $idleTimeout = (is_numeric($idleTimeoutRaw) ? (int) $idleTimeoutRaw : 30);
+        $minIdle = (is_numeric($minIdleRaw) ? (int) $minIdleRaw : 0);
+        if ($idleCheck < 0) {
+            $idleCheck = 30;
+        }
+        if ($idleTimeout < 0) {
+            $idleTimeout = 30;
+        }
+        if ($minIdle < 0) {
+            $minIdle = 0;
+        }
+
+        if ($address === '') {
+            $address = '127.0.0.1';
+        }
+
+        $item['remark']   = ($emoji == true ? Tools::addEmoji($node->name) : $node->name);
+        $item['type']     = 'anytls';
+        $item['address']  = $address;
+        $item['port']     = $port;
+        $item['passwd']   = $user->uuid;
+        $item['host']     = $host;
+        $item['insecure'] = $insecure;
+        $item['client_fingerprint'] = $clientFingerprint;
+        $item['udp'] = $udp;
+        $item['idle_session_check_interval'] = $idleCheck;
+        $item['idle_session_timeout'] = $idleTimeout;
+        $item['min_idle_session'] = $minIdle;
+        $item['class'] = $node->node_class;
+        $item['group'] = Config::get('appName');
+        $item['ratio'] = $node->traffic_rate;
+
         return $item;
     }
 

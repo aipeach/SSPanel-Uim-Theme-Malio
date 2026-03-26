@@ -286,6 +286,28 @@ class AppURI
                     'sni'         => $item['host']
                 ];
                 break;
+            case 'anytls':
+                $return = [
+                    'name'                        => $item['remark'],
+                    'type'                        => 'anytls',
+                    'server'                      => $item['address'],
+                    'port'                        => $item['port'],
+                    'password'                    => $item['passwd'],
+                    'client-fingerprint'          => (isset($item['client_fingerprint']) && trim((string) $item['client_fingerprint']) !== '')
+                        ? (string) $item['client_fingerprint']
+                        : 'chrome',
+                    'udp'                         => (array_key_exists('udp', $item) ? self::isTruthy($item['udp']) : true),
+                    'idle-session-check-interval' => (isset($item['idle_session_check_interval']) ? (int) $item['idle_session_check_interval'] : 30),
+                    'idle-session-timeout'        => (isset($item['idle_session_timeout']) ? (int) $item['idle_session_timeout'] : 30),
+                    'min-idle-session'            => (isset($item['min_idle_session']) ? (int) $item['min_idle_session'] : 0),
+                ];
+                if (isset($item['host']) && trim((string) $item['host']) !== '') {
+                    $return['sni'] = (string) $item['host'];
+                }
+                if (isset($item['insecure']) && self::isTruthy($item['insecure'])) {
+                    $return['skip-cert-verify'] = true;
+                }
+                break;
         }
         return $return;
     }
@@ -366,6 +388,12 @@ class AppURI
             case 'trojan':
                 $return  = ('trojan://' . $item['passwd'] . '@' . $item['address'] . ':' . $item['port']);
                 $return .= ('?peer=' . $item['host'] . '#' . rawurlencode($item['remark']));
+                break;
+            case 'anytls':
+                $return = self::buildAnytlsURI($item);
+                if (isset($item['remark']) && trim((string) $item['remark']) !== '') {
+                    $return .= '#' . rawurlencode((string) $item['remark']);
+                }
                 break;
         }
         return $return;
@@ -513,7 +541,75 @@ class AppURI
                 $return  = ('trojan://' . $item['passwd'] . '@' . $item['address'] . ':' . $item['port']);
                 $return .= ('?peer=' . $item['host'] . '#' .  rawurlencode($item['remark']));
                 break;
+            case 'anytls':
+                $return = self::buildAnytlsURI($item);
+                if (isset($item['remark']) && trim((string) $item['remark']) !== '') {
+                    $return .= '#' . rawurlencode((string) $item['remark']);
+                }
+                break;
         }
         return $return;
+    }
+
+    public static function getAnytlsURI(array $item)
+    {
+        if (!isset($item['type']) || $item['type'] !== 'anytls') {
+            return null;
+        }
+        $return = self::buildAnytlsURI($item);
+        if (isset($item['remark']) && trim((string) $item['remark']) !== '') {
+            $return .= '#' . rawurlencode((string) $item['remark']);
+        }
+        return $return;
+    }
+
+    private static function buildAnytlsURI(array $item)
+    {
+        $address = (isset($item['address']) ? trim((string) $item['address']) : '');
+        $address = self::normalizeUriHost($address);
+        $port = (isset($item['port']) ? (int) $item['port'] : 443);
+
+        $return = 'anytls://' . $item['passwd'] . '@' . $address;
+        if ($port > 0 && $port !== 443) {
+            $return .= ':' . $port;
+        }
+
+        $query = [];
+        $sni = (isset($item['host']) ? trim((string) $item['host']) : '');
+        if ($sni !== '') {
+            $query['sni'] = $sni;
+        }
+        if (isset($item['insecure']) && self::isTruthy($item['insecure'])) {
+            $query['insecure'] = '1';
+        }
+
+        $return .= '/';
+        if ($query !== []) {
+            $return .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        }
+
+        return $return;
+    }
+
+    private static function normalizeUriHost($host)
+    {
+        $host = trim($host);
+        if ($host === '') {
+            return '';
+        }
+        $rawHost = trim($host, '[]');
+        if (filter_var($rawHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            return '[' . $rawHost . ']';
+        }
+        return $host;
+    }
+
+    private static function isTruthy($value)
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        $value = strtolower(trim((string) $value));
+        return in_array($value, ['1', 'true', 'yes', 'on'], true);
     }
 }
