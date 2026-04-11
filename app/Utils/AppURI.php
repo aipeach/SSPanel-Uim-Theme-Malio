@@ -276,6 +276,55 @@ class AppURI
                     }
                 }
                 break;
+            case 'vless':
+                if (!in_array($item['net'], ['tcp', 'ws', 'grpc', 'h2', 'http'])) {
+                    break;
+                }
+                $server = (isset($item['add']) ? $item['add'] : $item['address']);
+                $sni = (isset($item['sni']) && trim((string) $item['sni']) !== ''
+                    ? (string) $item['sni']
+                    : (isset($item['host']) && trim((string) $item['host']) !== ''
+                        ? (string) $item['host']
+                        : (string) $server));
+                $security = strtolower(trim((string) ($item['security'] ?? '')));
+                if ($security === '' && isset($item['tls']) && $item['tls'] === 'tls') {
+                    $security = 'tls';
+                }
+                $return = [
+                    'name' => $item['remark'],
+                    'type' => 'vless',
+                    'server' => $server,
+                    'port' => $item['port'],
+                    'uuid' => $item['id'],
+                    'network' => $item['net'],
+                    'udp' => true
+                ];
+                if ($item['net'] == 'ws') {
+                    $return['ws-path'] = $item['path'];
+                    $return['ws-headers']['Host'] = (isset($item['host']) && $item['host'] != '' ? $item['host'] : $server);
+                }
+                if (in_array($security, ['tls', 'reality'], true)) {
+                    $return['tls'] = true;
+                    $return['servername'] = $sni;
+                    if (isset($item['verify_cert']) && $item['verify_cert'] == false) {
+                        $return['skip-cert-verify'] = true;
+                    }
+                }
+                if ($security === 'reality') {
+                    if (isset($item['pbk']) && trim((string) $item['pbk']) !== '') {
+                        $return['reality-opts']['public-key'] = (string) $item['pbk'];
+                    }
+                    if (isset($item['sid']) && trim((string) $item['sid']) !== '') {
+                        $return['reality-opts']['short-id'] = (string) $item['sid'];
+                    }
+                    if (isset($item['fp']) && trim((string) $item['fp']) !== '') {
+                        $return['client-fingerprint'] = (string) $item['fp'];
+                    }
+                }
+                if (isset($item['flow']) && trim((string) $item['flow']) !== '') {
+                    $return['flow'] = (string) $item['flow'];
+                }
+                break;
             case 'trojan':
                 $return = [
                     'name'        => $item['remark'],
@@ -394,6 +443,9 @@ class AppURI
                 if (isset($item['remark']) && trim((string) $item['remark']) !== '') {
                     $return .= '#' . rawurlencode((string) $item['remark']);
                 }
+                break;
+            case 'vless':
+                $return = self::getVlessURI($item);
                 break;
         }
         return $return;
@@ -563,6 +615,21 @@ class AppURI
         return $return;
     }
 
+    public static function getVlessURI(array $item)
+    {
+        if (!isset($item['type']) || $item['type'] !== 'vless') {
+            return null;
+        }
+        $return = self::buildVlessURI($item);
+        if ($return === null) {
+            return null;
+        }
+        if (isset($item['remark']) && trim((string) $item['remark']) !== '') {
+            $return .= '#' . rawurlencode((string) $item['remark']);
+        }
+        return $return;
+    }
+
     private static function buildAnytlsURI(array $item)
     {
         $address = (isset($item['address']) ? trim((string) $item['address']) : '');
@@ -584,6 +651,71 @@ class AppURI
         }
 
         $return .= '/';
+        if ($query !== []) {
+            $return .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        }
+
+        return $return;
+    }
+
+    private static function buildVlessURI(array $item)
+    {
+        $address = trim((string) ($item['add'] ?? $item['address'] ?? ''));
+        $address = self::normalizeUriHost($address);
+        $uuid = trim((string) ($item['id'] ?? $item['uuid'] ?? ''));
+        if ($address === '' || $uuid === '') {
+            return null;
+        }
+        $port = (isset($item['port']) ? (int) $item['port'] : 443);
+        if ($port <= 0 || $port > 65535) {
+            $port = 443;
+        }
+
+        $network = strtolower(trim((string) ($item['net'] ?? 'tcp')));
+        if ($network === '') {
+            $network = 'tcp';
+        }
+        $security = strtolower(trim((string) ($item['security'] ?? '')));
+        if ($security === '' && isset($item['tls']) && $item['tls'] === 'tls') {
+            $security = 'tls';
+        }
+
+        $query = [
+            'encryption' => 'none',
+            'type' => $network
+        ];
+        if ($security !== '' && $security !== 'none') {
+            $query['security'] = $security;
+        }
+        if (isset($item['flow']) && trim((string) $item['flow']) !== '') {
+            $query['flow'] = (string) $item['flow'];
+        }
+        $sni = trim((string) ($item['sni'] ?? $item['host'] ?? ''));
+        if ($sni !== '') {
+            $query['sni'] = $sni;
+        }
+        if (isset($item['fp']) && trim((string) $item['fp']) !== '') {
+            $query['fp'] = (string) $item['fp'];
+        }
+        if (isset($item['pbk']) && trim((string) $item['pbk']) !== '') {
+            $query['pbk'] = (string) $item['pbk'];
+        }
+        if (isset($item['sid']) && trim((string) $item['sid']) !== '') {
+            $query['sid'] = (string) $item['sid'];
+        }
+        if ($network === 'ws') {
+            $query['path'] = (isset($item['path']) && trim((string) $item['path']) !== '' ? (string) $item['path'] : '/');
+            if (isset($item['host']) && trim((string) $item['host']) !== '') {
+                $query['host'] = (string) $item['host'];
+            }
+        } elseif ($network === 'tcp' && isset($item['headerType']) && trim((string) $item['headerType']) !== '' && trim((string) $item['headerType']) !== 'none') {
+            $query['headerType'] = (string) $item['headerType'];
+        }
+        if (isset($item['verify_cert']) && $item['verify_cert'] == false) {
+            $query['allowInsecure'] = '1';
+        }
+
+        $return = 'vless://' . $uuid . '@' . $address . ':' . $port;
         if ($query !== []) {
             $return .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
         }

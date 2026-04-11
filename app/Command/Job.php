@@ -45,12 +45,12 @@ class Job
     {
         $nodes = Node::all();
         foreach ($nodes as $node) {
-            if (in_array($node->sort, array(0, 1, 10, 11, 12, 13))) {
+            if (in_array($node->sort, array(0, 1, 10, 11, 12, 13, 15))) {
                 $server_list = explode(';', $node->server);
                 if (!Tools::is_ip($server_list[0]) && $node->changeNodeIp($server_list[0])) {
                     $node->save();
                 }
-                if (in_array($node->sort, array(0, 10, 12))) {
+                if (in_array($node->sort, array(0, 10, 12, 15))) {
                     Tools::updateRelayRuleIp($node);
                 }
             }
@@ -128,15 +128,16 @@ class Job
         $nodes = Node::all();
         foreach ($nodes as $node) {
             $rule = preg_match("/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/", $node->server);
-            if (!$rule && (!$node->sort || $node->sort == 10 || $node->sort == 12 || $node->sort == 13)) {
-                $ip = gethostbyname($node->server);
+            if (!$rule && (!$node->sort || $node->sort == 10 || $node->sort == 12 || $node->sort == 13 || $node->sort == 15)) {
+                $server = explode(';', $node->server)[0];
+                $ip = gethostbyname($server);
                 if ($ip == "127.0.0.1"){
-                    $ip = DNSoverHTTPS::gethostbyName($node->server);
+                    $ip = DNSoverHTTPS::gethostbyName($server);
                 }
                 $node->node_ip = $ip;
                 $node->save();
 
-                Radius::AddNas($node->node_ip, $node->server);
+                Radius::AddNas($node->node_ip, $server);
             }
         }
     }
@@ -146,7 +147,7 @@ class Job
         ini_set('memory_limit', '-1');
         $nodes = Node::all();
         foreach ($nodes as $node) {
-            if ($node->sort == 0 || $node->sort == 10 || $node->sort == 11 || $node->sort == 12 || $node->sort == 13) {
+            if ($node->sort == 0 || $node->sort == 10 || $node->sort == 11 || $node->sort == 12 || $node->sort == 13 || $node->sort == 15) {
                 if (date('d') == $node->bandwidthlimit_resetday) {
                     $node->node_bandwidth = 0;
                     $node->save();

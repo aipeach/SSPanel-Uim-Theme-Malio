@@ -395,6 +395,12 @@
                         {/if}
                         {/if}
 
+                        {if (in_array("v2ray",$malio_config['support_sub_type'])) || (in_array("vless",$malio_config['support_sub_type']))}
+                        {if (!in_array("vless",$malio_config['index_hidden_import_buttons']))}
+                          <a href="##" class="btn btn-icon icon-left btn-primary btn-v2ray copy-text btn-lg btn-round" data-clipboard-text="{$subInfo['vless']}{if $malio_config['enable_sub_extend'] == true}&extend=1{/if}"><i class="malio-v2rayng"></i> 复制 VLESS 订阅链接</a>
+                        {/if}
+                        {/if}
+
                         {if (in_array("anytls",$malio_config['support_sub_type']))}
                         {if (!in_array("anytls",$malio_config['index_hidden_import_buttons']))}
                           <a href="##" class="btn btn-icon icon-left btn-primary btn-v2ray copy-text btn-lg btn-round" data-clipboard-text="{$subInfo['anytls']}{if $malio_config['enable_sub_extend'] == true}&extend=1{/if}"><i class="malio-v2rayng"></i> 复制 AnyTLS 订阅链接</a>

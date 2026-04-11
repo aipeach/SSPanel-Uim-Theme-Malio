@@ -261,6 +261,8 @@ class LinkController extends BaseController
             case 'sub':
                 if ((int) $value == 3) {
                     $return = self::getSubscribeExtend('v2rayn');
+                } elseif ((int) $value == 5) {
+                    $return = self::getSubscribeExtend('vless');
                 } elseif ((int) $value == 6) {
                     $return = self::getSubscribeExtend('anytls');
                 } elseif ((int) $value == 2) {
@@ -312,6 +314,13 @@ class LinkController extends BaseController
             case 'v2rayn':
                 $return = [
                     'filename' => 'V2RayN',
+                    'suffix'   => 'txt',
+                    'class'    => 'Sub'
+                ];
+                break;
+            case 'vless':
+                $return = [
+                    'filename' => 'VLESS',
                     'suffix'   => 'txt',
                     'class'    => 'Sub'
                 ];
@@ -526,6 +535,7 @@ class LinkController extends BaseController
             'ss'              => '?sub=2',
             'ssr'             => '?sub=1',
             'v2ray'           => '?sub=3',
+            'vless'           => '?sub=5',
             'anytls'          => '?sub=6',
             // apps
             'ssa'             => '?list=ssa',
@@ -580,6 +590,10 @@ class LinkController extends BaseController
                 $return = AppURI::getClashURI($item, true);
                 break;
             case 'v2rayn':
+                if (isset($item['type']) && $item['type'] === 'vless') {
+                    $return = AppURI::getVlessURI($item);
+                    break;
+                }
                 $item['ps'] = $item['remark'];
                 $item['type'] = $item['headerType'];
                 $return = 'vmess://' . base64_encode(json_encode($item, 320));
@@ -1445,6 +1459,9 @@ class LinkController extends BaseController
         $proxys = [];
         $items = URL::getNew_AllItems($user, $Rule);
         foreach ($items as $item) {
+            if (!isset($item['type']) || $item['type'] !== 'vmess') {
+                continue;
+            }
             if (!in_array($item['net'], ['tcp', 'ws', 'kcp', 'h2'])) {
                 continue;
             }
@@ -1511,6 +1528,10 @@ class LinkController extends BaseController
                 break;
             case 3: // V2
                 $Rule['type'] = 'vmess';
+                $getListExtend = $Rule['extend'] ? self::getListExtend($user, 'v2rayn') : [];
+                break;
+            case 5: // VLESS
+                $Rule['type'] = 'vless';
                 $getListExtend = $Rule['extend'] ? self::getListExtend($user, 'v2rayn') : [];
                 break;
             case 6: // AnyTLS

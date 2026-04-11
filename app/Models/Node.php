@@ -128,7 +128,7 @@ class Node extends Model
             return false;
         }
 
-        if (!in_array($this->attributes['sort'], [0, 7, 8, 10, 11, 12, 13])) {
+        if (!in_array($this->attributes['sort'], [0, 7, 8, 10, 11, 12, 13, 15])) {
             return null;
         }
 
@@ -181,6 +181,11 @@ class Node extends Model
         if (in_array($this->attributes['sort'], [0, 10])) {
             if (isset($explode[1]) && stripos($explode[1], 'server=') !== false) {
                 $out = URL::parse_args($explode[1])['server'];
+            }
+        } elseif (in_array($this->attributes['sort'], [11, 12, 15])) {
+            $item = Tools::v2Array($this->attributes['server']);
+            if (isset($item['add']) && trim((string) $item['add']) !== '') {
+                $out = trim((string) $item['add']);
             }
         }
         return ($out != '' ? $out : $explode[0]);

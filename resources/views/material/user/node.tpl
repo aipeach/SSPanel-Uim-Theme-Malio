@@ -11,27 +11,54 @@
     } </script>
 
 {function displayV2rayNode node=null}
-    {$v2server=URL::getV2Url($user, $node['raw_node'], 1)}
-    <p>地址：<span class="card-tag tag-blue">{$v2server['add']}</span></p>
-    <p>端口：<span class="card-tag tag-volcano">{$v2server['port']}</span></p>
-    <p>AlterId：<span class="card-tag tag-purple">{$v2server['aid']}</span></p>
-    <p>用户 UUID：<span class="card-tag tag-geekblue">{$user->getUuid()}</span></p>
-    <p>传输协议：<span class="card-tag tag-green">{if $v2server['net']=="tls"}tcp{else}{$v2server['net']}{/if}</span></p>
-    {if $v2server['net']=="ws"}
-        <p>路径：<span class="card-tag tag-green">{$v2server['path']}</span></p>
-    {/if}
+    {if $node['sort'] == 15}
+        {$vless=URL::getVlessItem($user, $node['raw_node'], false)}
+        <p>地址：<span class="card-tag tag-blue">{$vless['add']}</span></p>
+        <p>端口：<span class="card-tag tag-volcano">{$vless['port']}</span></p>
+        <p>用户 UUID：<span class="card-tag tag-geekblue">{$user->getUuid()}</span></p>
+        <p>传输协议：<span class="card-tag tag-green">{$vless['net']}</span></p>
+        {if isset($vless['security']) && $vless['security'] != ''}
+            <p>安全类型：<span class="card-tag tag-green">{$vless['security']}</span></p>
+        {/if}
+        {if isset($vless['sni']) && $vless['sni'] != ''}
+            <p>SNI：<span class="card-tag tag-green">{$vless['sni']}</span></p>
+        {/if}
+        {if isset($vless['flow']) && $vless['flow'] != ''}
+            <p>Flow：<span class="card-tag tag-green">{$vless['flow']}</span></p>
+        {/if}
+        {if isset($vless['pbk']) && $vless['pbk'] != ''}
+            <p>PublicKey：<span class="card-tag tag-purple">{$vless['pbk']}</span></p>
+        {/if}
+        {if isset($vless['sid']) && $vless['sid'] != ''}
+            <p>ShortID：<span class="card-tag tag-purple">{$vless['sid']}</span></p>
+        {/if}
+        <p>流量比例：<span class="card-tag tag-red">{$node['traffic_rate']}</span></p>
+        <p>VLESS链接：
+            <a class="copy-text" data-clipboard-text="{URL::getVlessUrl($user, $node['raw_node'])}">点击复制</a>
+        </p>
+    {else}
+        {$v2server=URL::getV2Url($user, $node['raw_node'], 1)}
+        <p>地址：<span class="card-tag tag-blue">{$v2server['add']}</span></p>
+        <p>端口：<span class="card-tag tag-volcano">{$v2server['port']}</span></p>
+        <p>AlterId：<span class="card-tag tag-purple">{$v2server['aid']}</span></p>
+        <p>用户 UUID：<span class="card-tag tag-geekblue">{$user->getUuid()}</span></p>
+        <p>传输协议：<span class="card-tag tag-green">{if $v2server['net']=="tls"}tcp{else}{$v2server['net']}{/if}</span></p>
+        {if $v2server['net']=="ws"}
+            <p>路径：<span class="card-tag tag-green">{$v2server['path']}</span></p>
+        {/if}
 
-    {if $v2server['net']=="kcp"}
-        <p>伪装方式：<span class="card-tag tag-green">{$v2server['type']}</span></p>
-    {/if}
+        {if $v2server['net']=="kcp"}
+            <p>伪装方式：<span class="card-tag tag-green">{$v2server['type']}</span></p>
+        {/if}
 
-    {if ($v2server['net']=="ws" && $v2server['tls']=="tls")||$v2server['net']=="tls"||($v2server['net']=="tcp" && $v2server['tls']=="tls")}
-        <p>TLS：<span class="card-tag tag-green">TLS</span></p>
+        {if ($v2server['net']=="ws" && $v2server['tls']=="tls")||$v2server['net']=="tls"||($v2server['net']=="tcp" && $v2server['tls']=="tls")}
+            <p>TLS：<span class="card-tag tag-green">TLS</span></p>
+        {/if}
+        <p>流量比例：<span class="card-tag tag-red">{$node['traffic_rate']}</span></p>
+        <p>VMess链接：
+            <a class="copy-text" data-clipboard-text="{URL::getV2Url($user, $node['raw_node'])}">点击复制</a>
+        </p>
     {/if}
-    <p>流量比例：<span class="card-tag tag-red">{$node['traffic_rate']}</span></p>
-    <p>VMess链接：
-        <a class="copy-text" data-clipboard-text="{URL::getV2Url($user, $node['raw_node'])}">点击复制</a>
-    </p>
 {/function}
 
 {function displayNodeLinkV2 node=null}
@@ -125,7 +152,7 @@
                                         {$relay_rule = $tools->pick_out_relay_rule($node['id'], $user->port, $relay_rules)}
                                     {/if}
 
-                                    {if $node['mu_only'] != 1 && ($node['sort'] != 11 || $node['sort']!=12)}
+                                    {if $node['mu_only'] != 1 && !in_array($node['sort'], [11, 12, 15])}
                                         <div class="tiptitle">
                                             <a href="javascript:void(0);"
                                                onClick="urlChange('{$node['id']}',0,{if $relay_rule != null}{$relay_rule->id}{else}0{/if})">
@@ -139,7 +166,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    {elseif $node['sort'] == 11 || $node['sort']==12}
+                                    {elseif in_array($node['sort'], [11, 12, 15])}
                                         {displayNodeLinkV2 node=$node}
                                         {$point_node=$node}
                                     {/if}
@@ -179,7 +206,7 @@
                                         <div><span class="node-icon"><i
                                                         class="icon icon-lg">chat</i> </span>{$node['info']}</div>
                                     </div>
-                                    {if $node['sort'] == 11 || $node['sort'] == 12}
+                                    {if in_array($node['sort'], [11, 12, 15])}
                                         {displayV2rayNode node=$node}
                                     {/if}
 
@@ -271,14 +298,14 @@
                                                         <div class="card nodetip-table">
                                                             <div class="card-main">
                                                                 <div class="card-inner">
-                                                                    {if $node['mu_only'] != 1 && ($node['sort'] != 11 || $node['sort']!=12)}
+                                                                    {if $node['mu_only'] != 1 && !in_array($node['sort'], [11, 12, 15])}
                                                                         <p class="card-heading">
                                                                             <a href="javascript:void(0);"
                                                                                onClick="urlChange('{$node['id']}',0,{if $relay_rule != null}{$relay_rule->id}{else}0{/if})">{$node['name']}
                                                                                 {if $relay_rule != null} - {$relay_rule->dist_node()->name}{/if}</a>
                                                                             <span class="label label-brand-accent">←点击节点查看配置信息</span>
                                                                         </p>
-                                                                    {elseif $node['sort'] == 11|| $node['sort']==12}
+                                                                    {elseif in_array($node['sort'], [11, 12, 15])}
                                                                         {displayNodeLinkV2 node=$node}
                                                                         {$point_node=$node}
                                                                     {/if}
@@ -319,7 +346,7 @@
                                                                         <i class="icon icon-lg node-icon">chat</i> {$node['info']}
                                                                     </div>
 
-                                                                    {if $node['sort'] == 11 ||$node['sort']==12}
+                                                                    {if in_array($node['sort'], [11, 12, 15])}
                                                                         {displayV2rayNode node=$node}
                                                                     {/if}
                                                                 </div>
@@ -444,4 +471,3 @@
     {/literal}
 
 </script>
-

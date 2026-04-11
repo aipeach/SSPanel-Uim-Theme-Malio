@@ -323,7 +323,10 @@ class URL
                 $sort = [0, 10];
                 break;
             case 'vmess':
-                $sort = [11, 12];
+                $sort = [11, 12, 15];
+                break;
+            case 'vless':
+                $sort = [15];
                 break;
             case 'trojan':
                 $sort = [14];
@@ -333,7 +336,7 @@ class URL
                 break;
             default:
                 $Rule['type'] = 'all';
-                $sort = [0, 10, 11, 12, 13, 14, 16];
+                $sort = [0, 10, 11, 12, 13, 14, 15, 16];
                 break;
         }
         if ($user->is_admin) {
@@ -363,7 +366,7 @@ class URL
             $nodes = $node_query->orderBy('name')->get();
         }
         $return_array = array();
-        if ($is_mu != 0 && $Rule['type'] != 'vmess' && $Rule['type'] != 'trojan' && $Rule['type'] != 'anytls') {
+        if ($is_mu != 0 && $Rule['type'] != 'vmess' && $Rule['type'] != 'vless' && $Rule['type'] != 'trojan' && $Rule['type'] != 'anytls') {
             $mu_node_query = Node::query();
             $mu_node_query->where('sort', 9)->where('type', '1');
             if ($user->is_admin) {
@@ -418,6 +421,17 @@ class URL
                 if (in_array($node->sort, [11, 12]) && (($Rule['type'] == 'all' && $x == 0) || ($Rule['type'] != 'all'))) {
                     // V2Ray
                     $item = self::getV2Url($user, $node, 1, $emoji);
+                    if ($item != null) {
+                        $find = (isset($Rule['content']['regex']) && $Rule['content']['regex'] != '' ? ConfController::getMatchProxy($item, ['content' => ['regex' => $Rule['content']['regex']]]) : true);
+                        if ($find) {
+                            $return_array[] = $item;
+                        }
+                    }
+                    continue;
+                }
+                if (in_array($node->sort, [15]) && (($Rule['type'] == 'all' && $x == 0) || ($Rule['type'] != 'all'))) {
+                    // VLESS Reality
+                    $item = self::getVlessItem($user, $node, $emoji);
                     if ($item != null) {
                         $find = (isset($Rule['content']['regex']) && $Rule['content']['regex'] != '' ? ConfController::getMatchProxy($item, ['content' => ['regex' => $Rule['content']['regex']]]) : true);
                         if ($find) {
@@ -521,6 +535,11 @@ class URL
             // 如果获取节点的类型不是 all
             $tmp = [];
             foreach ($return_array as $outnode) {
+                if ($Rule['type'] == 'vmess' && in_array($outnode['type'], ['vmess', 'vless'], true)) {
+                    // vmess 订阅同时包含 VLESS
+                    $tmp[] = $outnode;
+                    continue;
+                }
                 if ($outnode['type'] == $Rule['type']) {
                     // 放行类型相同
                     $tmp[] = $outnode;
@@ -580,6 +599,78 @@ class URL
         if (isset($opt['host'])) {
             $item['host'] = $opt['host'];
         }
+        return $item;
+    }
+
+    /**
+     * VLESS Reality 节点
+     *
+     * 节点格式示例：
+     * domain.com;443;0;tcp;xtls;security=reality|flow=xtls-rprx-vision|sni=example.com|PublicKey=xxx|sid=xxx|server=connect-host|outside_port=443
+     *
+     * @param User $user 用户
+     * @param Node $node
+     * @param bool $emoji
+     *
+     * @return array
+     */
+    public static function getVlessItem($user, $node, $emoji = false)
+    {
+        $base = Tools::v2Array($node->server);
+        $server = explode(';', $node->server);
+        if (count($server) >= 6 && trim((string) $server[5]) !== '') {
+            $base = array_merge($base, self::parse_args($server[5]));
+        }
+
+        $opt = [];
+        foreach ($base as $key => $value) {
+            $opt[strtolower((string) $key)] = $value;
+        }
+
+        $getOpt = static function (array $options, array $keys, $default = '') {
+            foreach ($keys as $key) {
+                $idx = strtolower((string) $key);
+                if (!array_key_exists($idx, $options)) {
+                    continue;
+                }
+                $value = trim((string) $options[$idx]);
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+            return $default;
+        };
+
+        $security = strtolower($getOpt($opt, ['security'], ''));
+        $pbk = $getOpt($opt, ['pbk', 'publickey'], '');
+        if ($security === '' && $pbk !== '') {
+            $security = 'reality';
+        }
+
+        $item = $base;
+        $item['remark'] = ($emoji == true ? Tools::addEmoji($node->name) : $node->name);
+        $item['type'] = 'vless';
+        $item['id'] = $user->getUuid();
+        $item['uuid'] = $item['id'];
+        $item['address'] = $item['add'];
+        $item['net'] = (isset($item['net']) && trim((string) $item['net']) !== '' ? (string) $item['net'] : 'tcp');
+        $item['path'] = (isset($item['path']) ? (string) $item['path'] : '');
+        $item['host'] = $getOpt($opt, ['host'], (isset($item['host']) ? (string) $item['host'] : ''));
+        $item['sni'] = $getOpt($opt, ['sni'], $item['host']);
+        $item['security'] = $security;
+        $item['flow'] = $getOpt($opt, ['flow'], '');
+        $item['fp'] = $getOpt($opt, ['fp', 'fingerprint', 'client_fingerprint'], 'chrome');
+        $item['pbk'] = $pbk;
+        $item['sid'] = strtolower($getOpt($opt, ['sid', 'shortid', 'short_id'], ''));
+        $item['target'] = $getOpt($opt, ['target', 'dest'], '');
+        $item['headerType'] = (isset($item['headerType']) && trim((string) $item['headerType']) !== '' ? (string) $item['headerType'] : 'none');
+        $item['class'] = $node->node_class;
+        $item['group'] = Config::get('appName');
+        $item['ratio'] = $node->traffic_rate;
+
+        unset($item['privatekey'], $item['PrivateKey'], $item['private_key']);
+        unset($item['server'], $item['relayserver'], $item['outside_port'], $item['inside_port']);
+
         return $item;
     }
 
@@ -762,7 +853,7 @@ class URL
         }
         $items = URL::getNew_AllItems($user, $Rule);
         foreach ($items as $item) {
-            if ($item['type'] == 'vmess') {
+            if (in_array($item['type'], ['vmess', 'vless'], true)) {
                 $out = LinkController::getListItem($item, 'v2rayn');
             } else {
                 $out = LinkController::getListItem($item, $Rule['type']);
@@ -928,13 +1019,23 @@ class URL
         return $item;
     }
 
+    public static function getVlessUrl($user, $node, $arrout = 0, $emoji = false)
+    {
+        $item = self::getVlessItem($user, $node, $emoji);
+        if ($arrout == 0) {
+            return AppURI::getVlessURI($item);
+        }
+        return $item;
+    }
+
     public static function getAllVMessUrl($user, $arrout = 0, $emoji = false)
     {
         if ($user->is_admin) {
             $nodes = Node::where(
                 static function ($query) {
                     $query->where('sort', 11)
-                        ->orwhere('sort', 12);
+                        ->orwhere('sort', 12)
+                        ->orwhere('sort', 15);
                 }
             )
                 ->where('type', '1')
@@ -945,7 +1046,8 @@ class URL
             $nodes = Node::where(
                 static function ($query) {
                     $query->where('sort', 11)
-                        ->orwhere('sort', 12);
+                        ->orwhere('sort', 12)
+                        ->orwhere('sort', 15);
                 }
             )->where(
                 static function ($query) use ($nodeGroup) {
@@ -987,12 +1089,12 @@ class URL
         if ($arrout == 0) {
             $result = '';
             foreach ($nodes as $node) {
-                $result .= (self::getV2Url($user, $node, $arrout, $emoji) . "\n");
+                $result .= (($node->sort == 15 ? self::getVlessUrl($user, $node, $arrout, $emoji) : self::getV2Url($user, $node, $arrout, $emoji)) . "\n");
             }
         } else {
             $result = [];
             foreach ($nodes as $node) {
-                $result[] = self::getV2Url($user, $node, $arrout, $emoji);
+                $result[] = ($node->sort == 15 ? self::getVlessUrl($user, $node, $arrout, $emoji) : self::getV2Url($user, $node, $arrout, $emoji));
             }
         }
         return $result;

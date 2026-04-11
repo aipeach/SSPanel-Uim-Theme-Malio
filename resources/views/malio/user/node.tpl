@@ -68,7 +68,7 @@
               {foreach $nodes as $node}
               {if $node['class'] == $node_class}
               <div class="col-12 col-sm-12 col-lg-6">
-                {if $node['sort'] == 11}
+                {if in_array($node['sort'], [11, 15])}
                 <div class="card" {if $user->class>0} data-toggle="modal" data-target="#node-modal-{$node['id']}"{/if}>
                   {else}
                   <div class="card" {if $user->class >0}onclick="urlChange('{$node['id']}',0,{if $relay_rule != null}{$relay_rule->id}{else}0{/if})"{/if}>
@@ -79,7 +79,7 @@
                           {$region = substr($node['name'],0,6)}
                           <img alt="image" class="mr-3 rounded-circle" width="50" src="/theme/malio/assets/modules/flag-icon-css/flags/1x1/{if $malio_config['flag_mode']=='node-name'}{if $flags[$region] != ''}{$flags[$region]}{else}un{/if}{else}{$node['status']}{/if}.svg">
                           <div class="media-body">
-                            <div class="media-title node-status {if $node['online']=='1' or $node['sort'] == 14 or $node['sort'] == 16}node-is-online{else}node-is-offline{/if}">{current(explode(" - ", $node['name']))}</div>
+                            <div class="media-title node-status {if $node['online']=='1' or $node['sort'] == 14 or $node['sort'] == 15 or $node['sort'] == 16}node-is-online{else}node-is-offline{/if}">{current(explode(" - ", $node['name']))}</div>
                             <div class=" text-job text-muted">{$node['info']}</div>
                           </div>
                           <div class="media-items">
@@ -128,7 +128,7 @@
 
   {foreach $nodes as $node}
   {if $user->class >= $node['class']}
-  {if $node['sort'] == 11}
+  {if in_array($node['sort'], [11, 15])}
   <div class="modal fade" tabindex="-1" role="dialog" id="node-modal-{$node['id']}">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
@@ -139,6 +139,29 @@
           </button>
         </div>
         <div class="modal-body">
+          {if $node['sort'] == 15}
+          {$vless=URL::getVlessItem($user, $node['raw_node'], false)}
+          <div class="mb-2">{$i18n->get('address')}: <code>{$vless['add']}</code></div>
+          <div class="mb-2">{$i18n->get('port')}: <code>{$vless['port']}</code></div>
+          <div class="mb-2">UUID: <code>{$user->getUuid()}</code></div>
+          <div class="mb-2">{$i18n->get('transport')}: <code>{$vless['net']}</code></div>
+          {if isset($vless['security']) && $vless['security'] != ''}
+          <div class="mb-2">Security: <code>{$vless['security']}</code></div>
+          {/if}
+          {if isset($vless['sni']) && $vless['sni'] != ''}
+          <div class="mb-2">SNI: <code>{$vless['sni']}</code></div>
+          {/if}
+          {if isset($vless['flow']) && $vless['flow'] != ''}
+          <div class="mb-2">Flow: <code>{$vless['flow']}</code></div>
+          {/if}
+          {if isset($vless['pbk']) && $vless['pbk'] != ''}
+          <div class="mb-2">PublicKey: <code>{$vless['pbk']}</code></div>
+          {/if}
+          {if isset($vless['sid']) && $vless['sid'] != ''}
+          <div class="mb-2">ShortID: <code>{$vless['sid']}</code></div>
+          {/if}
+          <div class="mb-2">VLESS URL: <code>{URL::getVlessUrl($user, $node['raw_node'])}</code></div>
+          {else}
           {$v2server=URL::getV2Url($user, $node['raw_node'], 1)}
           <div class="mb-2">{$i18n->get('address')}: <code>{$v2server['add']}</code></div>
           <div class="mb-2">{$i18n->get('port')}: <code>{$v2server['port']}</code></div>
@@ -155,6 +178,7 @@
           <div class="mb-2">TLS: <code>TLS</code></div>
           {/if}
           <div class="mb-2">{$i18n->get('vmess-url')}: <code>{URL::getV2Url($user, $node['raw_node'])}</code></div>
+          {/if}
         </div>
       </div>
     </div>

@@ -398,7 +398,7 @@ class VueController extends BaseController
                 $array_node['online'] = -1;
             }
 
-            if (in_array($node->sort, array(0, 7, 8, 10, 11, 12, 13))) {
+            if (in_array($node->sort, array(0, 7, 8, 10, 11, 12, 13, 15))) {
                 $array_node['online_user'] = $node->getOnlineUserCount();
             } else {
                 $array_node['online_user'] = -1;
@@ -535,6 +535,7 @@ class VueController extends BaseController
                 }
                 break;
             case 13:
+            case 15:
                 if ((($user->class >= $node->node_class
                         && ($user->node_group == $node->node_group || $node->node_group == 0)) || $user->is_admin)
                     && ($node->node_bandwidth_limit == 0 || $node->node_bandwidth < $node->node_bandwidth_limit)) {

@@ -367,7 +367,7 @@ class XCat
         foreach ($nodes as $node) {
             $ip = "";
             $server = "";
-            if (in_array($node->sort, array(0, 1, 10, 11, 12, 13))) {
+            if (in_array($node->sort, array(0, 1, 10, 11, 12, 13, 15))) {
                 $server_list = explode(";", $node->server);
                 $server = $server_list[0];
                 if (!Tools::is_ip($server)) {
