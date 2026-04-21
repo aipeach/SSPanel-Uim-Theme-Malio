@@ -98,6 +98,36 @@ $Malio_Config['subscribe_node_group_by_last_day_t'] = [
     // 'default' => 3,    // last_day_t >= 100GB -> node_group = 3（C 组）
 ];
 
+// 可选：按“客户端”细分订阅节点类型（未命中 subscribe_node_types_by_group 时生效）
+// 结构：客户端 => 协议列表
+// 支持兜底键：default / *
+$Malio_Config['subscribe_node_types'] = [
+    // 'clash' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+    // 'surge' => ['ss', 'vmess', 'trojan', 'anytls'],
+    // 'shadowrocket' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+    // 'quantumultx' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+    // 'default' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+];
+
+// 可选：按“分组 + 客户端”细分订阅节点类型（优先级高于 subscribe_node_types）
+// 结构：分组ID => 客户端 => 协议列表
+// 支持兜底键：default / *
+// 例：分组 1 的 clash 只下发 vmess + vless；分组 2 的 clash 只下发 trojan
+$Malio_Config['subscribe_node_types_by_group'] = [
+    // '1' => [
+    //     'clash' => ['vmess', 'vless'],
+    //     'surge' => ['ss', 'trojan', 'anytls'],
+    //     'shadowrocket' => ['ss', 'trojan'],
+    //     'quantumultx' => ['ss', 'trojan', 'vless', 'anytls'],
+    // ],
+    // '2' => [
+    //     'clash' => ['trojan'],
+    // ],
+    // 'default' => [
+    //     'clash' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+    // ],
+];
+
 
 ####### 在线客服系统 #######
 // Crisp 设置

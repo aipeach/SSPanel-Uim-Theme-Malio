@@ -98,8 +98,15 @@ class URL
      *
      * @return int
      */
-    private static function getSubscribeNodeGroup($user)
+    public static function getSubscribeNodeGroup($user, $Rule = [])
     {
+        if (isset($Rule['temp_group']) && is_numeric($Rule['temp_group'])) {
+            $tempGroup = (int) $Rule['temp_group'];
+            if ($tempGroup >= 0) {
+                return $tempGroup;
+            }
+        }
+
         $userGroup = (int) $user->node_group;
 
         $malioConfig = MalioConfig::getPublicConfig();
@@ -342,7 +349,7 @@ class URL
         if ($user->is_admin) {
             $nodes = Node::whereIn('sort', $sort)->where('type', '1')->orderBy('name')->get();
         } else {
-            $nodeGroup = self::getSubscribeNodeGroup($user);
+            $nodeGroup = self::getSubscribeNodeGroup($user, $Rule);
             $node_query = Node::query();
             $node_query->whereIn('sort', $sort)->where('type', '1')->where(
                 static function ($query) use ($nodeGroup) {
@@ -546,6 +553,41 @@ class URL
                 }
             }
             $return_array = $tmp;
+        }
+        if (isset($Rule['allowed_types']) && is_array($Rule['allowed_types'])) {
+            if (count($Rule['allowed_types']) === 0) {
+                return [];
+            }
+            $allowedTypeMap = [];
+            $allowAllTypes = false;
+            foreach ($Rule['allowed_types'] as $type) {
+                if (!is_scalar($type)) {
+                    continue;
+                }
+                $type = strtolower(trim((string) $type));
+                if ($type === '*' || $type === 'all') {
+                    $allowAllTypes = true;
+                    break;
+                }
+                if ($type === 'v2ray') {
+                    $type = 'vmess';
+                }
+                if ($type === '') {
+                    continue;
+                }
+                $allowedTypeMap[$type] = true;
+            }
+            if (!$allowAllTypes && $allowedTypeMap !== []) {
+                $tmp = [];
+                foreach ($return_array as $outnode) {
+                    if (isset($allowedTypeMap[$outnode['type']])) {
+                        $tmp[] = $outnode;
+                    }
+                }
+                $return_array = $tmp;
+            } elseif (!$allowAllTypes) {
+                $return_array = [];
+            }
         }
         return $return_array;
     }

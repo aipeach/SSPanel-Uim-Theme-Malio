@@ -41,6 +41,16 @@ class AppURI
                     case 'trojan':
                         $return = ($item['remark'] . ' = trojan, ' . $item['address'] . ', ' . $item['port'] . ', password=' . $item['passwd']) . ", sni=" . $item['host'];
                         break;
+                    case 'anytls':
+                        $return = ($item['remark'] . ' = anytls, ' . $item['address'] . ', ' . $item['port'] . ', password=' . $item['passwd']);
+                        if (isset($item['host']) && trim((string) $item['host']) !== '') {
+                            $return .= ', sni=' . $item['host'];
+                        }
+                        if (isset($item['insecure']) && self::isTruthy($item['insecure'])) {
+                            $return .= ', skip-cert-verify=true';
+                        }
+                        $return .= ', udp-relay=' . ((isset($item['udp']) && !self::isTruthy($item['udp'])) ? 'false' : 'true');
+                        break;
                 }
                 break;
         }
@@ -152,6 +162,48 @@ class AppURI
                 // ;trojan=example.com:443, password=pwd, over-tls=true, tls-verification=true, fast-open=false, udp-relay=false, tag=trojan-tls-01
                 $return  = ('trojan=' . $item['address'] . ':' . $item['port'] . ', password=' . $item['passwd'] . ', tls-host=' . $item['host']);
                 $return .= ', over-tls=true, tls-verification=true';
+                $return .= (', tag=' . $item['remark']);
+                break;
+            case 'vless':
+                if (!in_array($item['net'], ['tcp', 'ws'])) {
+                    break;
+                }
+                $server = (isset($item['add']) ? $item['add'] : $item['address']);
+                $security = strtolower(trim((string) ($item['security'] ?? '')));
+                if ($security === '' && isset($item['tls']) && $item['tls'] === 'tls') {
+                    $security = 'tls';
+                }
+                $hasTls = in_array($security, ['tls', 'reality'], true);
+                $sni = (isset($item['sni']) && trim((string) $item['sni']) !== ''
+                    ? (string) $item['sni']
+                    : (isset($item['host']) ? (string) $item['host'] : $server));
+                $return = ('vless=' . $server . ':' . $item['port'] . ', method=none, password=' . $item['id']);
+                if ($item['net'] == 'ws') {
+                    $return .= ($hasTls ? ', obfs=wss' : ', obfs=ws');
+                    $return .= ', obfs-uri=' . (isset($item['path']) && trim((string) $item['path']) !== '' ? $item['path'] : '/');
+                    if (isset($item['host']) && trim((string) $item['host']) !== '') {
+                        $return .= ', obfs-host=' . $item['host'];
+                    }
+                } elseif ($hasTls) {
+                    $return .= ', obfs=over-tls';
+                }
+                if ($hasTls && $sni !== '') {
+                    $return .= ', tls-host=' . $sni;
+                }
+                if (isset($item['verify_cert']) && $item['verify_cert'] == false) {
+                    $return .= ', tls-verification=false';
+                } elseif ($hasTls) {
+                    $return .= ', tls-verification=true';
+                }
+                $return .= (', tag=' . $item['remark']);
+                break;
+            case 'anytls':
+                $return = ('anytls=' . $item['address'] . ':' . $item['port'] . ', password=' . $item['passwd'] . ', over-tls=true');
+                if (isset($item['host']) && trim((string) $item['host']) !== '') {
+                    $return .= ', tls-host=' . $item['host'];
+                }
+                $return .= ', tls-verification=' . ((isset($item['insecure']) && self::isTruthy($item['insecure'])) ? 'false' : 'true');
+                $return .= ', udp-relay=' . ((isset($item['udp']) && !self::isTruthy($item['udp'])) ? 'false' : 'true');
                 $return .= (', tag=' . $item['remark']);
                 break;
         }

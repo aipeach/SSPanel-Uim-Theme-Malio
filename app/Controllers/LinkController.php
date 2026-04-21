@@ -6,7 +6,7 @@ namespace App\Controllers;
 
 use App\Models\{Link, User, UserSubscribeLog, Smartline};
 use App\Utils\{URL, Tools, AppURI, ConfRender};
-use App\Services\{Config, AppsProfiles};
+use App\Services\{Config, AppsProfiles, MalioConfig};
 use Ramsey\Uuid\Uuid;
 use voku\helper\AntiXSS;
 
@@ -567,6 +567,132 @@ class LinkController extends BaseController
         );
     }
 
+    private static function getListDefaultNodeTypes($list)
+    {
+        $defaultMap = [
+            'ssa' => ['ss'],
+            'clash' => ['ss', 'vmess', 'trojan', 'vless', 'anytls'],
+            'clashr' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+            'surge' => ['ss', 'vmess', 'trojan', 'anytls'],
+            'kitsunebi' => ['ss', 'vmess'],
+            'surfboard' => ['ss'],
+            'quantumult' => ['vmess'],
+            'quantumultx' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+            'shadowrocket' => ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'],
+            'v2rayn' => ['vmess', 'vless'],
+            'anytls' => ['anytls'],
+        ];
+        return (isset($defaultMap[$list]) ? $defaultMap[$list] : null);
+    }
+
+    private static function getSubscribeClientAliases($client)
+    {
+        $client = strtolower(trim((string) $client));
+        if ($client === '') {
+            return [];
+        }
+        $aliases = [$client];
+        if ($client === 'clashr') {
+            $aliases[] = 'clash';
+        }
+        return array_values(array_unique($aliases));
+    }
+
+    private static function normalizeSubscribeNodeTypes($types)
+    {
+        if (!is_array($types)) {
+            return [];
+        }
+        $typeAlias = [
+            'v2ray' => 'vmess',
+        ];
+        $supportedTypes = ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls'];
+        $normalized = [];
+        foreach ($types as $type) {
+            if (!is_scalar($type)) {
+                continue;
+            }
+            $type = strtolower(trim((string) $type));
+            if ($type === '') {
+                continue;
+            }
+            if ($type === '*' || $type === 'all') {
+                return $supportedTypes;
+            }
+            if (isset($typeAlias[$type])) {
+                $type = $typeAlias[$type];
+            }
+            if (in_array($type, $supportedTypes, true) && !in_array($type, $normalized, true)) {
+                $normalized[] = $type;
+            }
+        }
+        return $normalized;
+    }
+
+    private static function resolveSubscribeNodeTypesFromClientMap($config, $client)
+    {
+        if (!is_array($config)) {
+            return null;
+        }
+        $keys = array_merge(self::getSubscribeClientAliases($client), ['default', '*']);
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $config)) {
+                continue;
+            }
+            return self::normalizeSubscribeNodeTypes($config[$key]);
+        }
+        return null;
+    }
+
+    private static function resolveSubscribeNodeTypes($user, $Rule, $client)
+    {
+        $malioConfig = MalioConfig::getPublicConfig();
+
+        $groupConfigMap = ($malioConfig['subscribe_node_types_by_group'] ?? null);
+        if (is_array($groupConfigMap)) {
+            $groupId = URL::getSubscribeNodeGroup($user, $Rule);
+            $groupKeys = [(string) $groupId, 'default', '*'];
+            foreach ($groupKeys as $groupKey) {
+                if (!array_key_exists($groupKey, $groupConfigMap)) {
+                    continue;
+                }
+                $types = self::resolveSubscribeNodeTypesFromClientMap($groupConfigMap[$groupKey], $client);
+                if ($types !== null) {
+                    return $types;
+                }
+            }
+        }
+
+        $globalConfig = ($malioConfig['subscribe_node_types'] ?? null);
+        if (!is_array($globalConfig)) {
+            return null;
+        }
+        $isIndexedList = true;
+        foreach (array_keys($globalConfig) as $key) {
+            if (!is_int($key)) {
+                $isIndexedList = false;
+                break;
+            }
+        }
+        if ($isIndexedList) {
+            return self::normalizeSubscribeNodeTypes($globalConfig);
+        }
+        return self::resolveSubscribeNodeTypesFromClientMap($globalConfig, $client);
+    }
+
+    private static function applySubscribeNodeTypeRule($user, &$Rule, $client, $defaultTypes = null)
+    {
+        $types = self::resolveSubscribeNodeTypes($user, $Rule, $client);
+        if ($types === null && $defaultTypes !== null) {
+            $types = self::normalizeSubscribeNodeTypes($defaultTypes);
+        }
+        if ($types === null) {
+            return;
+        }
+        $Rule['type'] = 'all';
+        $Rule['allowed_types'] = $types;
+    }
+
     public static function getListItem($item, $list)
     {
         $return = null;
@@ -623,11 +749,9 @@ class LinkController extends BaseController
         if ($list == 'ssd') {
             return self::getSSD($user, 1, $opts, $Rule, false);
         }
-        if ($list == 'ssa') {
-            $Rule['type'] = 'ss';
-        }
-        if ($list == 'quantumult') {
-            $Rule['type'] = 'vmess';
+        $defaultTypes = self::getListDefaultNodeTypes($list);
+        if ($defaultTypes !== null) {
+            self::applySubscribeNodeTypeRule($user, $Rule, $list, $defaultTypes);
         }
         $items = URL::getNew_AllItems($user, $Rule);
         $return = [];
@@ -776,7 +900,10 @@ class LinkController extends BaseController
         $subInfo = self::getSubinfo($user, $surge);
         $userapiUrl = $subInfo['surge'];
         $source = (isset($opts['source']) && $opts['source'] != '' ? true : false);
-        if ($surge != 4) $Rule['type'] = 'ss';
+        $defaultTypes = ($surge == 4
+            ? ['ss', 'vmess', 'trojan', 'anytls']
+            : ['ss']);
+        self::applySubscribeNodeTypeRule($user, $Rule, 'surge', $defaultTypes);
         $items = URL::getNew_AllItems($user, $Rule);
         $All_Proxy = '';
         foreach ($items as $item) {
@@ -858,6 +985,7 @@ class LinkController extends BaseController
                 return implode(PHP_EOL, $str);
                 break;
             case 3:
+                self::applySubscribeNodeTypeRule($user, $Rule, 'quantumult', ['ss', 'ssr', 'vmess']);
                 $items = URL::getNew_AllItems($user, $Rule);
                 break;
             default:
@@ -924,7 +1052,7 @@ class LinkController extends BaseController
         $subInfo = self::getSubinfo($user, 0);
         $userapiUrl = $subInfo['surfboard'];
         $All_Proxy = '';
-        $Rule['type'] = 'ss';
+        self::applySubscribeNodeTypeRule($user, $Rule, 'surfboard', ['ss']);
         $items = URL::getNew_AllItems($user, $Rule);
         foreach ($items as $item) {
             $out = AppURI::getSurfboardURI($item);
@@ -965,6 +1093,10 @@ class LinkController extends BaseController
         $subInfo = self::getSubinfo($user, 0);
         $userapiUrl = $subInfo['clash'];
         $ssr_support = ($clash == 2 ? true : false);
+        $defaultTypes = ($ssr_support
+            ? ['ss', 'ssr', 'vmess', 'trojan', 'vless', 'anytls']
+            : ['ss', 'vmess', 'trojan', 'vless', 'anytls']);
+        self::applySubscribeNodeTypeRule($user, $Rule, ($ssr_support ? 'clashr' : 'clash'), $defaultTypes);
         $items = URL::getNew_AllItems($user, $Rule);
         $Proxys = [];
         foreach ($items as $item) {
