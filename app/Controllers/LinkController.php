@@ -157,7 +157,12 @@ class LinkController extends BaseController
                     } else {
                         $SubscribeExtend = self::getSubscribeExtend($key, $query_value);
                     }
-                    $filename = $SubscribeExtend['filename'] . '_' . time() . '.' . $SubscribeExtend['suffix'];
+                    $appName = trim((string) ($_ENV['appName'] ?? 'Subscribe'));
+                    if ($appName === '') {
+                        $appName = 'Subscribe';
+                    }
+                    $appName = preg_replace('/[\\\\\\/:*?"<>|\\s]+/', '_', $appName);
+                    $filename = $appName . '_' . $SubscribeExtend['filename'] . '.' . $SubscribeExtend['suffix'];
                     $subscribe_type = $SubscribeExtend['filename'];
                     $Cache = false;
                     $class = ('get' . $SubscribeExtend['class']);
@@ -498,6 +503,16 @@ class LinkController extends BaseController
             ->withHeader(
                 'Content-Disposition',
                 ' attachment; filename=' . $filename
+            )
+            ->withHeader(
+                'profile-web-page-url',
+                (trim((string) ($_ENV['baseUrl'] ?? '')) !== ''
+                    ? trim((string) $_ENV['baseUrl'])
+                    : 'https://localhost')
+            )
+            ->withHeader(
+                'profile-update-interval',
+                '24'
             )
             ->withHeader(
                 'X-Cache',
