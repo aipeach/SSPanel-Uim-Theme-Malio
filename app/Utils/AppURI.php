@@ -174,26 +174,55 @@ class AppURI
                     $security = 'tls';
                 }
                 $hasTls = in_array($security, ['tls', 'reality'], true);
+                $isReality = ($security === 'reality');
                 $sni = (isset($item['sni']) && trim((string) $item['sni']) !== ''
                     ? (string) $item['sni']
                     : (isset($item['host']) ? (string) $item['host'] : $server));
+                $publicKey = (isset($item['pbk']) && trim((string) $item['pbk']) !== ''
+                    ? (string) $item['pbk']
+                    : (isset($item['publickey']) && trim((string) $item['publickey']) !== ''
+                        ? (string) $item['publickey']
+                        : (isset($item['PublicKey']) ? (string) $item['PublicKey'] : '')));
+                $shortId = (isset($item['sid']) && trim((string) $item['sid']) !== ''
+                    ? strtolower((string) $item['sid'])
+                    : (isset($item['shortid']) && trim((string) $item['shortid']) !== ''
+                        ? strtolower((string) $item['shortid'])
+                        : ''));
                 $return = ('vless=' . $server . ':' . $item['port'] . ', method=none, password=' . $item['id']);
                 if ($item['net'] == 'ws') {
                     $return .= ($hasTls ? ', obfs=wss' : ', obfs=ws');
                     $return .= ', obfs-uri=' . (isset($item['path']) && trim((string) $item['path']) !== '' ? $item['path'] : '/');
                     if (isset($item['host']) && trim((string) $item['host']) !== '') {
                         $return .= ', obfs-host=' . $item['host'];
+                    } elseif ($hasTls && $sni !== '') {
+                        $return .= ', obfs-host=' . $sni;
                     }
                 } elseif ($hasTls) {
                     $return .= ', obfs=over-tls';
+                    if ($sni !== '') {
+                        $return .= ', obfs-host=' . $sni;
+                    }
                 }
-                if ($hasTls && $sni !== '') {
+                if ($hasTls && !$isReality && $sni !== '') {
                     $return .= ', tls-host=' . $sni;
                 }
-                if (isset($item['verify_cert']) && $item['verify_cert'] == false) {
-                    $return .= ', tls-verification=false';
-                } elseif ($hasTls) {
-                    $return .= ', tls-verification=true';
+                if ($isReality) {
+                    if (trim($publicKey) !== '') {
+                        $return .= ', reality-base64-pubkey=' . trim($publicKey);
+                    }
+                    if (trim($shortId) !== '') {
+                        $return .= ', reality-hex-shortid=' . trim($shortId);
+                    }
+                }
+                if (isset($item['flow']) && trim((string) $item['flow']) !== '') {
+                    $return .= ', vless-flow=' . trim((string) $item['flow']);
+                }
+                if (!$isReality) {
+                    if (isset($item['verify_cert']) && $item['verify_cert'] == false) {
+                        $return .= ', tls-verification=false';
+                    } elseif ($hasTls) {
+                        $return .= ', tls-verification=true';
+                    }
                 }
                 $return .= (', tag=' . $item['remark']);
                 break;
