@@ -98,6 +98,64 @@ $Malio_Config['subscribe_node_group_by_last_day_t'] = [
     // 'default' => 3,    // last_day_t >= 100GB -> node_group = 3（C 组）
 ];
 
+# 低流量用户订阅限速（按 用户 + 分组 + IP + UA）
+# 说明：
+# 1) 仅当用户已使用流量(u+d)低于 traffic_threshold_gb 时生效（与用户编辑页“已用流量”一致）
+# 2) 维度为：user_id + node_group + request_ip + request_ua_hash
+# 3) group_limits 支持按分组单独设置，default 或 * 作为兜底
+# 4) 某窗口设置为 0 表示不限制该窗口
+$Malio_Config['enable_low_traffic_subscribe_rate_limit'] = false;
+$Malio_Config['low_traffic_subscribe_rate_limit'] = [
+    'traffic_threshold_gb' => 10,   // 低于该已用流量阈值(GiB)的用户才限速
+    'exclude_admin' => true,        // 是否排除管理员
+    'whitelist_user_ids' => [],     // 不受限速影响的用户 ID 列表，例如 [1, 2, 3]
+    'trust_proxy_ip' => false,      // 是否信任 CF-Connecting-IP / X-Forwarded-For / X-Real-IP
+    'user_agent_max_length' => 1024, // 记录 UA 的最大长度
+
+    // UA 白名单（仅允许代理客户端 UA 访问订阅，浏览器/爬虫可强制拦截）
+    'enable_ua_whitelist' => false, // 是否启用 UA 白名单（建议开启后配好关键词）
+    'ua_allow_unknown' => false,    // 是否允许空 UA / unknown
+    'ua_block_browser' => true,     // 是否优先拦截浏览器/爬虫 UA
+    'ua_deny_http_status' => 403,   // 命中 UA 拦截时返回状态码
+    'ua_deny_message' => '当前客户端不允许下载订阅配置文件',
+    'ua_whitelist_keywords' => [
+        'clash', 'mihomo', 'flclash', 'clash-verge',
+        'shadowrocket/', 'quantumult', 'loon/',
+        'surge ', 'surge/', 'stash/',
+        'sing-box', 'singbox',
+        'v2rayn/', 'v2rayng/',
+        'oneclick/',
+    ],
+    'ua_whitelist_regex' => [
+        // '/^YourClient\\/\\d+\\.\\d+/i',
+    ],
+    'ua_browser_block_keywords' => [
+        'mozilla/', 'applewebkit/', 'chrome/', 'safari/',
+        'firefox/', 'edg/', 'opr/', 'opera/', 'trident/', 'msie',
+        'facebookexternalhit', 'facebot', 'twitterbot',
+        'telegrambot', 'micromessenger', 'windowswechat', 'xweb/',
+    ],
+
+    'deny_http_status' => 429,      // 命中限速时返回的 HTTP 状态码
+    'retry_after_seconds' => 60,    // Retry-After 响应头秒数
+    'deny_message' => '订阅请求过于频繁，请稍后再试',
+    'group_limits' => [
+        // 默认规则（未匹配到具体分组时生效）
+        'default' => [
+            'minute' => 3,  // 1分钟最多 3 次
+            'hour'   => 5,  // 1小时最多 5 次
+            'day'    => 10, // 1天最多 10 次
+        ],
+        // 示例：分组 1 更严格
+        // '1' => [
+        //     'minute' => 2,
+        //     'hour'   => 4,
+        //     'day'    => 8,
+        // ],
+    ],
+];
+$Malio_Config['subscribe_rate_limit_log_keep_days'] = 30; // 限速日志保留天数（Job DailyJob 清理）
+
 // 可选：按“客户端”细分订阅节点类型（未命中 subscribe_node_types_by_group 时生效）
 // 结构：客户端 => 协议列表
 // 支持兜底键：default / *

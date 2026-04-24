@@ -4,7 +4,7 @@
 
 namespace App\Controllers;
 
-use App\Models\{Link, User, UserSubscribeLog, Smartline};
+use App\Models\{Link, User, UserSubscribeLog, UserSubscribeRateLimitLog, Smartline};
 use App\Utils\{URL, Tools, AppURI, ConfRender};
 use App\Services\{Config, AppsProfiles, MalioConfig};
 use Ramsey\Uuid\Uuid;
@@ -164,6 +164,17 @@ class LinkController extends BaseController
                     $appName = preg_replace('/[\\\\\\/:*?"<>|\\s]+/', '_', $appName);
                     $filename = $appName . '_' . $SubscribeExtend['filename'] . '.' . $SubscribeExtend['suffix'];
                     $subscribe_type = $SubscribeExtend['filename'];
+                    $rateLimitResponse = self::checkLowTrafficSubscribeRateLimit(
+                        $request,
+                        $response,
+                        $user,
+                        $Elink,
+                        $subscribe_type,
+                        $Rule
+                    );
+                    if ($rateLimitResponse !== null) {
+                        return $rateLimitResponse;
+                    }
                     $Cache = false;
                     $class = ('get' . $SubscribeExtend['class']);
                     if (Config::get('enable_sub_cache') === true) {
@@ -476,6 +487,414 @@ class LinkController extends BaseController
         $antiXss = new AntiXSS();
         $log->request_user_agent = $antiXss->xss_clean($ua);
         $log->save();
+    }
+
+    private static function parseBooleanConfig($value, $default = false)
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_numeric($value)) {
+            return ((int) $value) !== 0;
+        }
+        if (is_string($value)) {
+            $value = strtolower(trim($value));
+            if (in_array($value, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+            if (in_array($value, ['0', 'false', 'no', 'off', ''], true)) {
+                return false;
+            }
+        }
+        return (bool) $default;
+    }
+
+    private static function normalizeRequestIp($candidate)
+    {
+        if (!is_scalar($candidate)) {
+            return null;
+        }
+
+        $candidate = trim((string) $candidate);
+        if ($candidate === '') {
+            return null;
+        }
+
+        if (preg_match('/^\[(.+)\](?::\d+)?$/', $candidate, $match)) {
+            $candidate = $match[1];
+        } elseif (substr_count($candidate, ':') === 1 && strpos($candidate, '.') !== false) {
+            $ipPort = explode(':', $candidate, 2);
+            if (isset($ipPort[1]) && ctype_digit($ipPort[1])) {
+                $candidate = $ipPort[0];
+            }
+        }
+
+        if (filter_var($candidate, FILTER_VALIDATE_IP) === false) {
+            return null;
+        }
+
+        return $candidate;
+    }
+
+    private static function getSubscribeRequestIp($request, $trustProxyIp)
+    {
+        $candidates = [];
+        if ($trustProxyIp) {
+            $cfConnectingIp = $request->getHeaderLine('CF-Connecting-IP');
+            if ($cfConnectingIp !== '') {
+                $candidates[] = $cfConnectingIp;
+            }
+            $xForwardedFor = $request->getHeaderLine('X-Forwarded-For');
+            if ($xForwardedFor !== '') {
+                $firstIp = explode(',', $xForwardedFor, 2)[0];
+                $candidates[] = $firstIp;
+            }
+            $xRealIp = $request->getHeaderLine('X-Real-IP');
+            if ($xRealIp !== '') {
+                $candidates[] = $xRealIp;
+            }
+        }
+        $candidates[] = ($_SERVER['REMOTE_ADDR'] ?? '');
+
+        foreach ($candidates as $candidate) {
+            $ip = self::normalizeRequestIp($candidate);
+            if ($ip !== null) {
+                return $ip;
+            }
+        }
+
+        return '0.0.0.0';
+    }
+
+    private static function sanitizeSubscribeUserAgent($ua, $maxLength = 1024)
+    {
+        $ua = trim((string) $ua);
+        if ((int) $maxLength > 0 && strlen($ua) > (int) $maxLength) {
+            $ua = substr($ua, 0, (int) $maxLength);
+        }
+        $antiXss = new AntiXSS();
+        $ua = $antiXss->xss_clean($ua);
+        if (!is_string($ua)) {
+            $ua = (string) $ua;
+        }
+        return trim($ua);
+    }
+
+    private static function getLowTrafficSubscribeRateLimitConfig()
+    {
+        $malioConfig = MalioConfig::getPublicConfig();
+        if (self::parseBooleanConfig($malioConfig['enable_low_traffic_subscribe_rate_limit'] ?? false, false) !== true) {
+            return null;
+        }
+
+        $config = $malioConfig['low_traffic_subscribe_rate_limit'] ?? [];
+        if (!is_array($config)) {
+            $config = [];
+        }
+
+        $whitelistUserIds = [];
+        if (isset($config['whitelist_user_ids']) && is_array($config['whitelist_user_ids'])) {
+            foreach ($config['whitelist_user_ids'] as $userId) {
+                if (!is_numeric($userId)) {
+                    continue;
+                }
+                $whitelistUserIds[] = (int) $userId;
+            }
+        }
+
+        return [
+            'traffic_threshold_gb' => (is_numeric($config['traffic_threshold_gb'] ?? null) ? (float) $config['traffic_threshold_gb'] : 10.0),
+            'exclude_admin' => self::parseBooleanConfig($config['exclude_admin'] ?? true, true),
+            'whitelist_user_ids' => array_values(array_unique($whitelistUserIds)),
+            'trust_proxy_ip' => self::parseBooleanConfig($config['trust_proxy_ip'] ?? false, false),
+            'user_agent_max_length' => (is_numeric($config['user_agent_max_length'] ?? null) && (int) $config['user_agent_max_length'] > 0
+                ? (int) $config['user_agent_max_length']
+                : 1024),
+            'enable_ua_whitelist' => self::parseBooleanConfig($config['enable_ua_whitelist'] ?? false, false),
+            'ua_allow_unknown' => self::parseBooleanConfig($config['ua_allow_unknown'] ?? false, false),
+            'ua_block_browser' => self::parseBooleanConfig($config['ua_block_browser'] ?? true, true),
+            'ua_deny_http_status' => (is_numeric($config['ua_deny_http_status'] ?? null) ? (int) $config['ua_deny_http_status'] : 403),
+            'ua_deny_message' => ((string) ($config['ua_deny_message'] ?? '当前客户端不允许下载订阅配置文件')),
+            'ua_whitelist_keywords' => (is_array($config['ua_whitelist_keywords'] ?? null) ? $config['ua_whitelist_keywords'] : []),
+            'ua_whitelist_regex' => (is_array($config['ua_whitelist_regex'] ?? null) ? $config['ua_whitelist_regex'] : []),
+            'ua_browser_block_keywords' => (is_array($config['ua_browser_block_keywords'] ?? null) ? $config['ua_browser_block_keywords'] : []),
+            'deny_http_status' => (is_numeric($config['deny_http_status'] ?? null) ? (int) $config['deny_http_status'] : 429),
+            'retry_after_seconds' => (is_numeric($config['retry_after_seconds'] ?? null) ? max(0, (int) $config['retry_after_seconds']) : 60),
+            'deny_message' => ((string) ($config['deny_message'] ?? '订阅请求过于频繁，请稍后再试')),
+            'group_limits' => (is_array($config['group_limits'] ?? null) ? $config['group_limits'] : []),
+        ];
+    }
+
+    private static function shouldApplyLowTrafficSubscribeRateLimit($user, $config)
+    {
+        if ($config['exclude_admin'] === true && (bool) $user->is_admin === true) {
+            return false;
+        }
+        if (in_array((int) $user->id, $config['whitelist_user_ids'], true)) {
+            return false;
+        }
+
+        $usedTraffic = (float) ($user->u + $user->d);
+        if ($usedTraffic < 0) {
+            $usedTraffic = 0;
+        }
+        $thresholdGb = (float) $config['traffic_threshold_gb'];
+        if ($thresholdGb < 0) {
+            $thresholdGb = 0;
+        }
+        $thresholdBytes = $thresholdGb * 1024 * 1024 * 1024;
+
+        return $usedTraffic < $thresholdBytes;
+    }
+
+    private static function checkSubscribeUaWhitelist($ua, $config)
+    {
+        if ($config['enable_ua_whitelist'] !== true) {
+            return [
+                'blocked' => false,
+                'reason' => null,
+            ];
+        }
+
+        $uaLower = strtolower(trim((string) $ua));
+        $isUnknownUa = ($uaLower === '' || $uaLower === 'unknown');
+        if ($isUnknownUa && $config['ua_allow_unknown'] === true) {
+            return [
+                'blocked' => false,
+                'reason' => null,
+            ];
+        }
+
+        if ($config['ua_block_browser'] === true && $uaLower !== '') {
+            foreach ($config['ua_browser_block_keywords'] as $keyword) {
+                if (!is_scalar($keyword)) {
+                    continue;
+                }
+                $keyword = strtolower(trim((string) $keyword));
+                if ($keyword === '') {
+                    continue;
+                }
+                if (strpos($uaLower, $keyword) !== false) {
+                    return [
+                        'blocked' => true,
+                        'reason' => 'ua_browser_blocked',
+                    ];
+                }
+            }
+        }
+
+        $matched = false;
+        if (!$isUnknownUa) {
+            foreach ($config['ua_whitelist_keywords'] as $keyword) {
+                if (!is_scalar($keyword)) {
+                    continue;
+                }
+                $keyword = strtolower(trim((string) $keyword));
+                if ($keyword === '') {
+                    continue;
+                }
+                if (strpos($uaLower, $keyword) !== false) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ($matched === false) {
+                foreach ($config['ua_whitelist_regex'] as $pattern) {
+                    if (!is_scalar($pattern)) {
+                        continue;
+                    }
+                    $pattern = trim((string) $pattern);
+                    if ($pattern === '') {
+                        continue;
+                    }
+                    $match = @preg_match($pattern, $ua);
+                    if ($match === 1) {
+                        $matched = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($matched === true) {
+            return [
+                'blocked' => false,
+                'reason' => null,
+            ];
+        }
+
+        if ($isUnknownUa) {
+            return [
+                'blocked' => true,
+                'reason' => 'ua_unknown_not_allowed',
+            ];
+        }
+
+        return [
+            'blocked' => true,
+            'reason' => 'ua_not_in_whitelist',
+        ];
+    }
+
+    private static function getSubscribeRateLimitGroupLimits($nodeGroup, $groupLimitsConfig)
+    {
+        $defaultLimit = [
+            'minute' => 0,
+            'hour' => 0,
+            'day' => 0,
+        ];
+        if (!is_array($groupLimitsConfig) || $groupLimitsConfig === []) {
+            return $defaultLimit;
+        }
+
+        $selected = null;
+        $candidateKeys = [(string) $nodeGroup, 'default', '*'];
+        foreach ($candidateKeys as $key) {
+            if (!array_key_exists($key, $groupLimitsConfig)) {
+                continue;
+            }
+            if (!is_array($groupLimitsConfig[$key])) {
+                continue;
+            }
+            $selected = $groupLimitsConfig[$key];
+            break;
+        }
+        if ($selected === null) {
+            return $defaultLimit;
+        }
+
+        foreach (array_keys($defaultLimit) as $window) {
+            if (!isset($selected[$window]) || !is_numeric($selected[$window])) {
+                continue;
+            }
+            $defaultLimit[$window] = max(0, (int) $selected[$window]);
+        }
+        return $defaultLimit;
+    }
+
+    private static function countSubscribeRateLimitRequests($userId, $nodeGroup, $requestIp, $requestUaHash, $windowSeconds)
+    {
+        if ($windowSeconds <= 0) {
+            return 0;
+        }
+        $beginTime = date('Y-m-d H:i:s', time() - (int) $windowSeconds);
+        return UserSubscribeRateLimitLog::where('user_id', $userId)
+            ->where('node_group', $nodeGroup)
+            ->where('request_ip', $requestIp)
+            ->where('request_ua_hash', $requestUaHash)
+            ->where('request_time', '>=', $beginTime)
+            ->count();
+    }
+
+    private static function writeSubscribeRateLimitLog($data)
+    {
+        $log = new UserSubscribeRateLimitLog();
+        $log->user_id = $data['user_id'];
+        $log->link_id = $data['link_id'];
+        $log->subscribe_type = $data['subscribe_type'];
+        $log->node_group = $data['node_group'];
+        $log->request_ip = $data['request_ip'];
+        $log->request_ua = $data['request_ua'];
+        $log->request_ua_hash = $data['request_ua_hash'];
+        $log->request_time = date('Y-m-d H:i:s');
+        $log->is_blocked = ($data['is_blocked'] ? 1 : 0);
+        $log->blocked_reason = $data['blocked_reason'];
+        $log->save();
+    }
+
+    private static function buildSubscribeDeniedResponse($response, $httpStatus, $message, $retryAfter = 0)
+    {
+        $httpStatus = (is_numeric($httpStatus) ? (int) $httpStatus : 429);
+        if ($httpStatus < 100 || $httpStatus > 599) {
+            $httpStatus = 429;
+        }
+        $message = trim((string) $message);
+        if ($message === '') {
+            $message = '请求被拒绝';
+        }
+        $newResponse = $response
+            ->withStatus($httpStatus)
+            ->withHeader('Content-Type', 'text/plain; charset=utf-8')
+            ->withHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        if ((int) $retryAfter > 0) {
+            $newResponse = $newResponse->withHeader('Retry-After', (string) ((int) $retryAfter));
+        }
+        $newResponse->write($message);
+        return $newResponse;
+    }
+
+    private static function checkLowTrafficSubscribeRateLimit($request, $response, $user, $link, $subscribeType, $Rule)
+    {
+        $config = self::getLowTrafficSubscribeRateLimitConfig();
+        if ($config === null) {
+            return null;
+        }
+        if (!self::shouldApplyLowTrafficSubscribeRateLimit($user, $config)) {
+            return null;
+        }
+
+        $nodeGroup = URL::getSubscribeNodeGroup($user, $Rule);
+        $requestIp = self::getSubscribeRequestIp($request, $config['trust_proxy_ip']);
+        $requestUa = self::sanitizeSubscribeUserAgent($request->getHeaderLine('User-Agent'), $config['user_agent_max_length']);
+        $requestUaForHash = ($requestUa === '' ? 'unknown' : $requestUa);
+        $requestUaHash = hash('sha256', $requestUaForHash);
+
+        $isBlocked = false;
+        $blockedReason = null;
+        $denyStatus = $config['deny_http_status'];
+        $denyMessage = $config['deny_message'];
+        $retryAfter = $config['retry_after_seconds'];
+
+        $uaWhitelistResult = self::checkSubscribeUaWhitelist($requestUaForHash, $config);
+        if ($uaWhitelistResult['blocked'] === true) {
+            $isBlocked = true;
+            $blockedReason = $uaWhitelistResult['reason'];
+            $denyStatus = $config['ua_deny_http_status'];
+            $denyMessage = $config['ua_deny_message'];
+            $retryAfter = 0;
+        } else {
+            $limits = self::getSubscribeRateLimitGroupLimits($nodeGroup, $config['group_limits']);
+            $windowMap = [
+                'minute' => 60,
+                'hour' => 3600,
+                'day' => 86400,
+            ];
+            foreach ($windowMap as $windowName => $windowSeconds) {
+                $limit = (int) ($limits[$windowName] ?? 0);
+                if ($limit <= 0) {
+                    continue;
+                }
+                $requestCount = self::countSubscribeRateLimitRequests(
+                    $user->id,
+                    $nodeGroup,
+                    $requestIp,
+                    $requestUaHash,
+                    $windowSeconds
+                );
+                if ($requestCount >= $limit) {
+                    $isBlocked = true;
+                    $blockedReason = 'rate_limit_' . $windowName;
+                    break;
+                }
+            }
+        }
+
+        self::writeSubscribeRateLimitLog([
+            'user_id' => (int) $user->id,
+            'link_id' => ($link == null ? null : (int) $link->id),
+            'subscribe_type' => (string) $subscribeType,
+            'node_group' => (int) $nodeGroup,
+            'request_ip' => $requestIp,
+            'request_ua' => $requestUaForHash,
+            'request_ua_hash' => $requestUaHash,
+            'is_blocked' => $isBlocked,
+            'blocked_reason' => $blockedReason,
+        ]);
+
+        if ($isBlocked) {
+            return self::buildSubscribeDeniedResponse($response, $denyStatus, $denyMessage, $retryAfter);
+        }
+        return null;
     }
 
     /**

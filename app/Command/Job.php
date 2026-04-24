@@ -18,6 +18,7 @@ use App\Models\BlockIp;
 use App\Models\TelegramSession;
 use App\Models\EmailVerify;
 use App\Models\UserSubscribeLog;
+use App\Models\UserSubscribeRateLimitLog;
 use App\Models\DetectBanLog;
 use App\Models\TelegramTasks;
 use App\Services\Config;
@@ -157,6 +158,13 @@ class Job
 
         // 清理订阅记录
         UserSubscribeLog::where('request_time', '<', date('Y-m-d H:i:s', time() - 86400 * (int) Config::get('subscribeLog_keep_days')))->delete();
+        $malioConfig = MalioConfig::getPublicConfig();
+        $rateLimitLogKeepDays = (isset($malioConfig['subscribe_rate_limit_log_keep_days']) && is_numeric($malioConfig['subscribe_rate_limit_log_keep_days']))
+            ? (int) $malioConfig['subscribe_rate_limit_log_keep_days']
+            : 30;
+        if ($rateLimitLogKeepDays > 0) {
+            UserSubscribeRateLimitLog::where('request_time', '<', date('Y-m-d H:i:s', time() - 86400 * $rateLimitLogKeepDays))->delete();
+        }
 
         Token::where('expire_time', '<', time())->delete();
 
