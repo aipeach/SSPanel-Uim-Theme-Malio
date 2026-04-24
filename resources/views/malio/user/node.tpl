@@ -68,10 +68,10 @@
               {foreach $nodes as $node}
               {if $node['class'] == $node_class}
               <div class="col-12 col-sm-12 col-lg-6">
-                {if in_array($node['sort'], [11, 15])}
-                <div class="card" {if $user->class>0} data-toggle="modal" data-target="#node-modal-{$node['id']}"{/if}>
+                {if in_array($node['sort'], [11, 15, 16])}
+                <div class="card" {if $user->class >= $node['class']} data-toggle="modal" data-target="#node-modal-{$node['id']}"{/if}>
                   {else}
-                  <div class="card" {if $user->class >0}onclick="urlChange('{$node['id']}',0,{if $relay_rule != null}{$relay_rule->id}{else}0{/if})"{/if}>
+                  <div class="card" {if $user->class >= $node['class']}onclick="urlChange('{$node['id']}',0,0)"{/if}>
                     {/if}
                     <div class="card-body">
                       <ul class="list-unstyled user-details list-unstyled-border list-unstyled-noborder">
@@ -128,7 +128,7 @@
 
   {foreach $nodes as $node}
   {if $user->class >= $node['class']}
-  {if in_array($node['sort'], [11, 15])}
+  {if in_array($node['sort'], [11, 15, 16])}
   <div class="modal fade" tabindex="-1" role="dialog" id="node-modal-{$node['id']}">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
@@ -161,6 +161,18 @@
           <div class="mb-2">ShortID: <code>{$vless['sid']}</code></div>
           {/if}
           <div class="mb-2">VLESS URL: <code>{URL::getVlessUrl($user, $node['raw_node'])}</code></div>
+          {elseif $node['sort'] == 16}
+          {$anytls=URL::getAnytlsItem($user, $node['raw_node'], false)}
+          <div class="mb-2">{$i18n->get('address')}: <code>{$anytls['address']}</code></div>
+          <div class="mb-2">{$i18n->get('port')}: <code>{$anytls['port']}</code></div>
+          <div class="mb-2">Password: <code>{$anytls['passwd']}</code></div>
+          {if isset($anytls['host']) && $anytls['host'] != ''}
+          <div class="mb-2">SNI: <code>{$anytls['host']}</code></div>
+          {/if}
+          {if isset($anytls['insecure']) && $anytls['insecure'] == 1}
+          <div class="mb-2">Insecure: <code>1</code></div>
+          {/if}
+          <div class="mb-2">AnyTLS URL: <code>{URL::getAnytlsUrl($user, $node['raw_node'])}</code></div>
           {else}
           {$v2server=URL::getV2Url($user, $node['raw_node'], 1)}
           <div class="mb-2">{$i18n->get('address')}: <code>{$v2server['add']}</code></div>

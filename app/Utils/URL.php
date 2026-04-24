@@ -1070,6 +1070,15 @@ class URL
         return $item;
     }
 
+    public static function getAnytlsUrl($user, $node, $arrout = 0, $emoji = false)
+    {
+        $item = self::getAnytlsItem($user, $node, $emoji);
+        if ($arrout == 0) {
+            return AppURI::getAnytlsURI($item);
+        }
+        return $item;
+    }
+
     public static function getAllVMessUrl($user, $arrout = 0, $emoji = false)
     {
         if ($user->is_admin) {

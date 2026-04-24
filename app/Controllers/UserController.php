@@ -742,8 +742,12 @@ class UserController extends BaseController
                 }
                 break;
             default:
-                echo '微笑';
+                $response->getBody()->write('无权查看该节点信息或节点类型暂不支持。');
+                return $response->withStatus(403);
         }
+
+        $response->getBody()->write('无权查看该节点信息。');
+        return $response->withStatus(403);
     }
 
     public function profile($request, $response, $args)
