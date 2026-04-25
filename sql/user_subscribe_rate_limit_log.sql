@@ -16,6 +16,5 @@ CREATE TABLE IF NOT EXISTS `user_subscribe_rate_limit_log` (
   PRIMARY KEY (`id`),
   KEY `idx_user_group_ip_ua_time` (`user_id`,`node_group`,`request_ip`,`request_ua_hash`,`request_time`),
   KEY `idx_request_time` (`request_time`),
-  KEY `idx_blocked` (`is_blocked`),
-  CONSTRAINT `user_subscribe_rate_limit_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_blocked` (`is_blocked`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='低流量用户订阅限速日志';
