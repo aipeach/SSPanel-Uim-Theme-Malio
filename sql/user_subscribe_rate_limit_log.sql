@@ -3,7 +3,7 @@
 --
 CREATE TABLE IF NOT EXISTS `user_subscribe_rate_limit_log` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) unsigned NOT NULL COMMENT '用户 ID',
+  `user_id` int(11) NOT NULL COMMENT '用户 ID',
   `link_id` bigint(20) DEFAULT NULL COMMENT 'link 表 ID',
   `subscribe_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '订阅类型',
   `node_group` int(11) NOT NULL DEFAULT 0 COMMENT '订阅分组',
@@ -19,4 +19,3 @@ CREATE TABLE IF NOT EXISTS `user_subscribe_rate_limit_log` (
   KEY `idx_blocked` (`is_blocked`),
   CONSTRAINT `user_subscribe_rate_limit_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='低流量用户订阅限速日志';
-
