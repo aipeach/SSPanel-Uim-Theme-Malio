@@ -292,6 +292,14 @@ class HomeController extends BaseController
                         '**Surge Version 3.x 托管配置链接：**[[iOS 点击此处一键添加]](surge3:///install-config?url=' . urlencode($subInfo['surge3']) . ')',
                         '```',
                         $subInfo['surge3'],
+                        '```',
+                        '**Surge Version 4.x 托管配置链接：**[[iOS 点击此处一键添加]](surge3:///install-config?url=' . urlencode($subInfo['surge4']) . ')',
+                        '```',
+                        $subInfo['surge4'],
+                        '```',
+                        '**Surge Version 5.x 托管配置链接：**[[iOS 点击此处一键添加]](surge3:///install-config?url=' . urlencode($subInfo['surge5']) . ')',
+                        '```',
+                        $subInfo['surge5'],
                         '```'
                     ];
                     break;

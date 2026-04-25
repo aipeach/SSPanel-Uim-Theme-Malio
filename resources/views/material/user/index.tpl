@@ -439,7 +439,7 @@ table tr td:first-child {
 											<div class="tab-pane fade" id="sub_center_mac">
 												<p><span class="icon icon-lg text-white">filter_1</span> <a class="btn-dl" href="https://nssurge.com/mac/v3/Surge-latest.zip"><i class="material-icons">save_alt</i> 下载</a> Surge - [ SS/VMess ]：</p>
 													<p>教程文档：<a class="btn-dl" href="/doc/#/macOS/Surge"><i class="material-icons icon-sm">how_to_vote</i>点击查看</a></p>
-													<p>使用方式：<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge4"]}"><i class="material-icons icon-sm">how_to_vote</i>4.x 托管</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge3"]}"><i class="material-icons icon-sm">how_to_vote</i>3.x 托管</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge_node"]}"><i class="material-icons icon-sm">how_to_vote</i>3.x 节点</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge2"]}"><i class="material-icons icon-sm">how_to_vote</i>2.x 托管</a></p>
+													<p>使用方式：<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge5"]}"><i class="material-icons icon-sm">how_to_vote</i>5.x 托管</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge4"]}"><i class="material-icons icon-sm">how_to_vote</i>4.x 托管</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge3"]}"><i class="material-icons icon-sm">how_to_vote</i>3.x 托管</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge_node"]}"><i class="material-icons icon-sm">how_to_vote</i>3.x 节点</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge2"]}"><i class="material-icons icon-sm">how_to_vote</i>2.x 托管</a></p>
 												<hr/>
 												<p><span class="icon icon-lg text-white">filter_2</span> <a class="btn-dl" href="https://github.com/yichengchen/clashX/releases"><i class="material-icons">save_alt</i> 下载</a> ClashX - [ SS/VMess ]：</p>
 													<p>教程文档：<a class="btn-dl" href="/doc/#/macOS/ClashX"><i class="material-icons icon-sm">how_to_vote</i>点击查看</a></p>
@@ -471,8 +471,8 @@ table tr td:first-child {
 											{/if}
 												<p><span class="icon icon-lg text-white">filter_1</span> <a class="btn-dl" href="https://itunes.apple.com/us/app/surge-3/id1442620678?ls=1&mt=8"><i class="material-icons">save_alt</i> 下载</a> Surge - [ SS/VMess ]：</p>
 													<p>教程文档：<a class="btn-dl" href="/doc/#/iOS/Surge"><i class="material-icons icon-sm">how_to_vote</i>点击查看</a></p>
-													<p>相关说明：Surge 4 托管配置中可能含有 VMess 节点，如您未订阅 Surge 4 请使用 3.x 一键.</p>
-													<p>使用方式：<a class="btn-dl" href="surge3:///install-config?url={urlencode($subInfo["surge4"])}"><i class="material-icons icon-sm">how_to_vote</i>4.x 一键</a>.<a class="btn-dl" href="surge3:///install-config?url={urlencode($subInfo["surge3"])}"><i class="material-icons icon-sm">how_to_vote</i>3.x 一键</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge_node"]}"><i class="material-icons icon-sm">how_to_vote</i>节点 List</a>.<a class="btn-dl" href="surge:///install-config?url={urlencode($subInfo["surge2"])}"><i class="material-icons icon-sm">how_to_vote</i>2.x 一键</a></p>
+													<p>相关说明：Surge 4/5 托管配置中可能含有 VMess 节点，如您未订阅 Surge 4/5 请使用 3.x 一键.</p>
+													<p>使用方式：<a class="btn-dl" href="surge3:///install-config?url={urlencode($subInfo["surge5"])}"><i class="material-icons icon-sm">how_to_vote</i>5.x 一键</a>.<a class="btn-dl" href="surge3:///install-config?url={urlencode($subInfo["surge4"])}"><i class="material-icons icon-sm">how_to_vote</i>4.x 一键</a>.<a class="btn-dl" href="surge3:///install-config?url={urlencode($subInfo["surge3"])}"><i class="material-icons icon-sm">how_to_vote</i>3.x 一键</a>.<a class="copy-text btn-dl" data-clipboard-text="{$subInfo["surge_node"]}"><i class="material-icons icon-sm">how_to_vote</i>节点 List</a>.<a class="btn-dl" href="surge:///install-config?url={urlencode($subInfo["surge2"])}"><i class="material-icons icon-sm">how_to_vote</i>2.x 一键</a></p>
 												<hr/>
 												<p><span class="icon icon-lg text-white">filter_2</span> <a class="btn-dl" href="https://itunes.apple.com/us/app/kitsunebi-proxy-utility/id1446584073?ls=1&mt=8"><i class="material-icons">save_alt</i> 下载</a> Kitsunebi - [ SS/VMess ]：</p>
 													<p>教程文档：<a class="btn-dl" href="/doc/#/iOS/Kitsunebi"><i class="material-icons icon-sm">how_to_vote</i>点击查看</a></p>
@@ -789,4 +789,3 @@ table tr td:first-child {
 {if $recaptcha_sitekey != null}
     <script src="https://recaptcha.net/recaptcha/api.js" async defer></script>
 {/if}
-

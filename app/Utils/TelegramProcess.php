@@ -20,6 +20,8 @@
             '?sub=4' => 'Kitsunebi or V2rayNG or BifrostV',
             '?surge=2' => 'Surge 2.x',
             '?surge=3' => 'Surge 3.x',
+            '?surge=4' => 'Surge 4.x',
+            '?surge=5' => 'Surge 5.x',
             '?ssd=1' => 'SSD',
             '?clash=1' => 'Clash',
             '?surfboard=1' => 'Surfboard',

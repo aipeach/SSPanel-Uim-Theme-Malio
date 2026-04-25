@@ -983,6 +983,7 @@ class LinkController extends BaseController
             'surge2'          => '?surge=2',
             'surge3'          => '?surge=3',
             'surge4'          => '?surge=4',
+            'surge5'          => '?surge=5',
             'surfboard'       => '?surfboard=1',
             'quantumult'      => '?quantumult=1' . $int,
             'quantumult_v2'   => '?list=quantumult',
@@ -1334,7 +1335,7 @@ class LinkController extends BaseController
         $subInfo = self::getSubinfo($user, $surge);
         $userapiUrl = $subInfo['surge'];
         $source = (isset($opts['source']) && $opts['source'] != '' ? true : false);
-        $defaultTypes = ($surge == 4
+        $defaultTypes = ((int) $surge >= 4
             ? ['ss', 'vmess', 'trojan', 'anytls']
             : ['ss']);
         self::applySubscribeNodeTypeRule($user, $Rule, 'surge', $defaultTypes);

@@ -371,11 +371,13 @@
                             </button>
                             <div class="dropdown-menu" x-placement="bottom-start" style="position: absolute; transform: translate3d(0px, 28px, 0px); top: 0px; left: 0px; will-change: transform;">
                               <a class="dropdown-item" href="##" onclick="importSublink('surge2')"> {$i18n->get('import-surge-version-config',['2'])}</a>
-                              <a class="dropdown-item copy-text" href="##" data-clipboard-text="{$subInfo['surge']}"> {$i18n->get('copy-surge-version-config-url',['2'])}</a>
+                              <a class="dropdown-item copy-text" href="##" data-clipboard-text="{$subInfo['surge2']}"> {$i18n->get('copy-surge-version-config-url',['2'])}</a>
                               <a class="dropdown-item" href="##" onclick="importSublink('surge3')"> {$i18n->get('import-surge-version-config',['3'])}</a>
                               <a class="dropdown-item copy-text" href="##" data-clipboard-text="{$subInfo['surge3']}"> {$i18n->get('copy-surge-version-config-url',['3'])}</a>
                               <a class="dropdown-item" href="##" onclick="importSublink('surge4')"> {$i18n->get('import-surge-version-config',['4'])}</a>
                               <a class="dropdown-item copy-text" href="##" data-clipboard-text="{$subInfo['surge4']}"> {$i18n->get('copy-surge-version-config-url',['4'])}</a>
+                              <a class="dropdown-item" href="##" onclick="importSublink('surge5')"> {$i18n->get('import-surge-version-config',['5'])}</a>
+                              <a class="dropdown-item copy-text" href="##" data-clipboard-text="{$subInfo['surge5']}"> {$i18n->get('copy-surge-version-config-url',['5'])}</a>
                             </div>
                           </div>
                         {/if}
@@ -560,6 +562,9 @@
       };
       if (client == 'surge4') {
         oneclickImport('surge3','{$subInfo["surge4"]}')
+      };
+      if (client == 'surge5') {
+        oneclickImport('surge3','{$subInfo["surge5"]}')
       };
       if (client == 'clash') {
         oneclickImport('clash','{$subInfo["clash"]}')

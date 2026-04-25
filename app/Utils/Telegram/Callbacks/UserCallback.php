@@ -794,18 +794,24 @@ class UserCallback
                     'callback_data' => 'user.subscribe|?list=surge'
                 ],
                 [
+                    'text'          => 'Surge 5',
+                    'callback_data' => 'user.subscribe|?surge=5'
+                ],
+            ],
+            [
+                [
                     'text'          => 'Surge 4',
                     'callback_data' => 'user.subscribe|?surge=4'
+                ],
+                [
+                    'text'          => 'Surge 3',
+                    'callback_data' => 'user.subscribe|?surge=3'
                 ],
             ],
             [
                 [
                     'text'          => 'Surge 2',
                     'callback_data' => 'user.subscribe|?surge=2'
-                ],
-                [
-                    'text'          => 'Surge 3',
-                    'callback_data' => 'user.subscribe|?surge=3'
                 ],
             ],
             [
