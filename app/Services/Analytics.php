@@ -95,7 +95,7 @@ class Analytics
 
     public function getTotalNodes()
     {
-        rreturn Node::where('node_heartbeat', '>', 0)->where(
+        return Node::where('node_heartbeat', '>', 0)->where(
             static function ($query) {
                 $query->Where('sort', '=', 0)
                     ->orWhere('sort', '=', 10)
